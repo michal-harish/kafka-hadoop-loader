@@ -1,0 +1,24 @@
+kafka-hadoop-consumer
+=====================
+
+This hadoop consumer creates splits for each broker-topic-partition which creates
+ideal parallelism between kafka sterams and mapper tasks.
+
+Further it does not use high level consumer and communicates with zookeeper with custom
+context while the offsets of records(messages) being mapped are kept in the offsets-temp
+until they are written into hdfs and only then are "committed" into the offsets proper.
+
+TODO implement topic filter or 
+
+## To run from eclipse (no jar)
+    add run configuration arguments: -r [-t <topic_name>] [-z <zookeeper>] [target_hdfs_path]
+
+## To run remotely as
+    $ mvn assembly:single
+    $ java -jar kafka-hadoop-consumer-jar-with-dependencies.jar -r [-t <topic_name>] [-z <zookeeper>] [target_hdfs_path]
+    TODO -r check if jar exists otherwise use addJarByClass
+
+## To run as hadoop jar
+    $ mvn assembly:single
+    $ hadoop jar kafka-hadoop-consumer-jar-with-dependencies.jar [-z <zookeeper>] [-t <topic>] [target_hdfs_path]
+
