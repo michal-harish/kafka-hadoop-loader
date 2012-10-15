@@ -5,20 +5,27 @@ This hadoop consumer creates splits for each broker-topic-partition which create
 ideal parallelism between kafka sterams and mapper tasks.
 
 Further it does not use high level consumer and communicates with zookeeper with custom
-context while the offsets of records(messages) being mapped are kept in the offsets-temp
+context while the consumed offsets of partitions being mapped are kept in the offsets-temp
 until they are written into hdfs and only then are "committed" into the offsets proper.
 
-TODO implement topic filter or 
+ARGUMENTS FOR RUNNING ON HQ-MHARIS-D01:HQ-MHARIS-D02 CLUSTER WITH RESETTING THE OFFSET:
 
-## To run from eclipse (no jar)
+-r 10.100.8.132 -t tracking_events -z hq-mharis-d01:2181 -o 0 -l 5000000 -i binary /tmp/events
+
+
+TO RUN FROM ECLIPSE (NO JAR)
     add run configuration arguments: -r [-t <topic_name>] [-z <zookeeper>] [target_hdfs_path]
 
-## To run remotely as
+
+TO RUN REMOTELY
     $ mvn assembly:single
     $ java -jar kafka-hadoop-consumer-jar-with-dependencies.jar -r [-t <topic_name>] [-z <zookeeper>] [target_hdfs_path]
     TODO -r check if jar exists otherwise use addJarByClass
 
-## To run as hadoop jar
+
+TO RUN AS HADOOP JAR
     $ mvn assembly:single
     $ hadoop jar kafka-hadoop-consumer-jar-with-dependencies.jar [-z <zookeeper>] [-t <topic>] [target_hdfs_path]
+
+
 
