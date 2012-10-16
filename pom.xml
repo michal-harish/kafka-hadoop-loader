@@ -31,7 +31,7 @@
     <dependency>
         <groupId>org.apache.kafka</groupId>
         <artifactId>kafka-core</artifactId>
-        <version>0.7.1-SNAPSHOT</version>
+        <version>0.7.1</version>
     </dependency> 
 
     <dependency>
