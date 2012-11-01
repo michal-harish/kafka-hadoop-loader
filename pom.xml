@@ -6,32 +6,12 @@
   <packaging>jar</packaging>
   <version>0.1.0-SNAPSHOT</version>
   <name>Kafka Loader Hadoop Job</name>
-  <repositories>
-    <repository>
-        <id>gridport.co-snapshots</id>
-        <name>GridPort Snapshots Repository</name>
-        <url>http://aos3.gridport.co:8081/nexus/content/repositories/snapshots</url>
-        <snapshots>
-            <updatePolicy>always</updatePolicy>
-        </snapshots>
-    </repository>
-    <repository>
-        <id>gridport.co-releases</id>
-        <name>GridPort Releases Repository</name>
-        <url>http://aos3.gridport.co:8081/nexus/content/repositories/releases</url>
-    </repository>
-    <repository>
-        <id>cloudera</id>
-        <name>Cloudera Maven Repo</name>
-        <url>https://repository.cloudera.com/artifactory/cloudera-repos</url>
-    </repository>
-  </repositories>
 
   <dependencies>
     <dependency>
         <groupId>org.apache.kafka</groupId>
         <artifactId>kafka-core</artifactId>
-        <version>0.7.1</version>
+        <version>0.7.2</version>
     </dependency> 
 
     <dependency>
@@ -39,17 +19,7 @@
         <artifactId>hadoop-client</artifactId>
         <version>2.0.0-mr1-cdh4.0.0</version>
     </dependency>
-<!-- 
-    <dependency>
-        <groupId>com.google.protobuf</groupId>
-        <artifactId>protobuf-java</artifactId>
-        <version>2.4.1</version>
-    </dependency>
-    <dependency>
-        <groupId>com.googlecode.protobuf-java-format</groupId>
-        <artifactId>protobuf-java-format</artifactId>
-        <version>1.2</version>
-    </dependency> -->
+
     <dependency>
         <groupId>co.gridport.protos</groupId>
         <artifactId>test-protos</artifactId>
@@ -78,8 +48,38 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <repositories>
+    <repository>
+        <id>visualdna-snapshots</id>
+        <name>VisualDNA Snapshots</name>
+        <url>http://maven.visualdna.com/nexus/content/repositories/snapshots</url>
+        <snapshots>
+            <updatePolicy>always</updatePolicy>
+        </snapshots>
+    </repository>
+    <repository>
+        <id>visualdna-releases</id>
+        <name>VisualDNA Releases</name>
+        <url>http://maven.visualdna.com/nexus/content/repositories/snapshots</url>
+    </repository>
+    <repository>
+        <id>cloudera</id>
+        <name>Cloudera Maven Repo</name>
+        <url>https://repository.cloudera.com/artifactory/cloudera-repos</url>
+    </repository>
+  </repositories>
+
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.6</source>
+          <target>1.6</target>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -95,9 +95,6 @@
                 <excludes>
                   <exclude>junit:junit</exclude>
                   <exclude>org.apache.hadoop:*</exclude>
-                  <!--
-                  <exclude>log4j:log4j:jar:</exclude>
-                  -->
                 </excludes>
               </artifactSet>
             </configuration>
@@ -108,6 +105,7 @@
           <artifactId>maven-assembly-plugin</artifactId>
           <configuration>
               <finalName>kafka-hadoop-consumer</finalName>
+              <appendAssemblyId>false</appendAssemblyId>
               <archive>
                   <manifest>
                       <mainClass>com.visualdna.kafka.hadoop.HadoopJob</mainClass>
@@ -116,15 +114,6 @@
             <descriptorRefs>
               <descriptorRef>jar-with-dependencies</descriptorRef>
             </descriptorRefs>
-            <!-- 
-            <dependencySets>
-                <depdependencySet>
-                    <excludes>
-                        <exclude>org.apache.hadoop:hadoop-client</exclude>
-                    </excludes>
-                </depdependencySet>
-            </dependencySets>
-             -->
           </configuration>
       </plugin>
     </plugins>

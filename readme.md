@@ -8,6 +8,11 @@ Further it does not use high level consumer and communicates with zookeeper with
 context while the consumed offsets of partitions being mapped are kept in the offsets-temp
 until they are written into hdfs and only then are "committed" into the offsets proper.
 
+
+ARGUMENTS FOR RUNNING ON KAFKA CENTRAL CLUSTER
+
+-t tracking_events -z zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181 -o 0 -l 5000000 -i json -r 10.100.8.132 /tmp/events
+
 ARGUMENTS FOR RUNNING ON HQ-MHARIS-D01:HQ-MHARIS-D02 CLUSTER WITH RESETTING THE OFFSET:
 
 -r 10.100.8.132 -t tracking_events -z hq-mharis-d01:2181 -o 0 -l 5000000 -i binary /tmp/events

@@ -82,10 +82,10 @@ public class HadoopJob extends Configured implements Tool {
         conf.setBoolean("mapred.map.tasks.speculative.execution", false);
 
         //configure the topic or topic filter
-        if (cmd.hasOption("topic"))
+        if (cmd.hasOption("topics"))
         {
-            conf.set("kafka.topic", cmd.getOptionValue("topic"));
-            Logger.getRootLogger().info("Using topic: " + conf.get("kafka.topic"));
+            conf.set("kafka.topics", cmd.getOptionValue("topics"));
+            Logger.getRootLogger().info("Using topics: " + conf.get("kafka.topics"));
         }
         else if (cmd.hasOption("filter"))
         {
@@ -100,7 +100,7 @@ public class HadoopJob extends Configured implements Tool {
         }
 
         //configure kafka consumer group 
-        conf.set("kafka.groupid", cmd.getOptionValue("consumer-group", "kafkaloader"));
+        conf.set("kafka.groupid", cmd.getOptionValue("consumer-group", "dev-hadoop-loader"));
         Logger.getRootLogger().info("Registering under consumer group: " + conf.get("kafka.groupid")); 
 
         //configure zk connection for coordination work
@@ -180,9 +180,12 @@ public class HadoopJob extends Configured implements Tool {
     private void commit(Configuration conf) throws IOException {
         ZkUtils zk = new ZkUtils(conf);
         try {
-            String topic = conf.get("kafka.topic");
             String group = conf.get("kafka.groupid");
-            zk.commit(group, topic);
+            String[] topics = conf.get("kafka.topics").split(",");
+            for(String topic: topics)
+            {
+                zk.commit(group, topic);
+            }
         } catch (Exception e) {
             rollback();
         } finally {
@@ -197,10 +200,10 @@ public class HadoopJob extends Configured implements Tool {
     private Options buildOptions() {
         Options options = new Options();
 
-        options.addOption(OptionBuilder.withArgName("topic")
-                .withLongOpt("topic")
+        options.addOption(OptionBuilder.withArgName("topics")
+                .withLongOpt("topics")
                 .hasArg()
-                .withDescription("kafka topic")
+                .withDescription("kafka topics")
                 .create("t"));
         options.addOption(OptionBuilder.withArgName("groupid")
                 .withLongOpt("consumer-group")

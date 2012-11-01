@@ -35,15 +35,18 @@ public class KafkaInputFormat extends InputFormat<LongWritable, BytesWritable> {
     public List<InputSplit> getSplits(JobContext context) throws IOException, InterruptedException {
         Configuration conf = context.getConfiguration();
         ZkUtils zk = new ZkUtils(conf);
-        String topic = conf.get("kafka.topic");
+        String[] topics = conf.get("kafka.topics").split(",");
         String group = conf.get("kafka.groupid");
         List<InputSplit> splits = new ArrayList<InputSplit>();
-        List<String> partitions = zk.getPartitions(topic);
-        for(String partition: partitions) {
-            String[] sp = partition.split("-");
-            long last = zk.getLastCommit(group, topic, partition) ;
-            InputSplit split = new KafkaSplit(sp[0], zk.getBroker(sp[0]), topic, Integer.valueOf(sp[1]), last);
-            splits.add(split);
+        for(String topic: topics)
+        {
+            List<String> partitions = zk.getPartitions(topic);
+            for(String partition: partitions) {
+                String[] sp = partition.split("-");
+                long last = zk.getLastCommit(group, topic, partition) ;
+                InputSplit split = new KafkaSplit(sp[0], zk.getBroker(sp[0]), topic, Integer.valueOf(sp[1]), last);
+                splits.add(split);
+            }
         }
         zk.close();
         return splits;
