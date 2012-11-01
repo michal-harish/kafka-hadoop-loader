@@ -1,7 +1,6 @@
-package com.visualdna.kafka.hadoop;
+package net.imagini.kafka.hadoop;
 
 import java.io.File;
-import java.io.IOException;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -12,19 +11,12 @@ import org.apache.commons.cli.PosixParser;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.BytesWritable;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
-
-import co.gridport.protos.VDNAEvent.Event;
-
-import com.googlecode.protobuf.format.JsonFormat;
 
 public class HadoopJob extends Configured implements Tool {
 
@@ -33,41 +25,8 @@ public class HadoopJob extends Configured implements Tool {
         //Configuration.addDefaultResource("mapred-site.xml");
     }
 
-    public static class KafkaMapper extends Mapper<LongWritable, BytesWritable, Text, Text> {
-        @Override
-        public void map(LongWritable key, BytesWritable value, Context context) throws IOException {
-            Text date = new Text();
-            Text out = new Text();
-            try {
-                if (context.getConfiguration().get("input.format").equals("json"))
-                {
-                    //grab the raw json date
-                    String json = new String(value.getBytes());
-                    int i = json.indexOf(",\"date\":\"") + 9;
-                    date.set(value.getBytes(), i, 10);
-                    out.set(value.getBytes(),0, value.getLength());
-                } else if (context.getConfiguration().get("input.format").equals("binary"))
-                {
-                    //Open the proto
-                    Event event = Event.parseFrom(value.copyBytes());
-                    date.set(event.getDate());
-                    out.set( JsonFormat.printToString(event));
-                }
-                else
-                {
-                    throw new IOException("Invalid mapper input.format");
-                }
-                context.write(date, out);
-            } catch (InterruptedException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-        }
-    }
-
     public int run(String[] args) throws Exception {
 
-        //parse options and arguments
         CommandLineParser parser = new PosixParser();
         Options options = buildOptions();
         CommandLine cmd = parser.parse(options, args);
@@ -77,11 +36,9 @@ public class HadoopJob extends Configured implements Tool {
         }
         String hdfsPath = cmd.getArgs()[0];
 
-        //initilialize configuration object
         Configuration conf = getConf();
         conf.setBoolean("mapred.map.tasks.speculative.execution", false);
 
-        //configure the topic or topic filter
         if (cmd.hasOption("topics"))
         {
             conf.set("kafka.topics", cmd.getOptionValue("topics"));
@@ -95,30 +52,24 @@ public class HadoopJob extends Configured implements Tool {
         }
         else
         {
-            //either topic or filter must be set
             printHelpAndExit(options);
         }
 
-        //configure kafka consumer group 
         conf.set("kafka.groupid", cmd.getOptionValue("consumer-group", "dev-hadoop-loader"));
         Logger.getRootLogger().info("Registering under consumer group: " + conf.get("kafka.groupid")); 
 
-        //configure zk connection for coordination work
         conf.set("kafka.zk.connect", cmd.getOptionValue("zk-connect", "hq-mharis-d02:2181"));
         Logger.getRootLogger().info("Using ZooKepper connection: " + conf.get("kafka.zk.connect"));
 
-        //confgiure reset offset 
         if (cmd.getOptionValue("autooffset-reset") != null)
         {
             conf.set("kafka.autooffset.reset", cmd.getOptionValue("autooffset-reset"));
             Logger.getRootLogger().info("SHOULD RESET OFFSET TO: " + conf.get("kafka.autooffset.reset"));
         }
 
-        //configure number messages default limit
         conf.setInt("kafka.limit", Integer.valueOf(cmd.getOptionValue("limit", "25000000")));
         Logger.getRootLogger().info("MAXIMUM MESSAGES PROCESSED BY THE JOB: " + conf.get("kafka.limit"));
 
-        //configure input format
         conf.set("input.format", cmd.getOptionValue("input-format", "json"));
         if (!conf.get("input.format").equals("json") && !conf.get("input.format").equals("binary"))
         {
@@ -126,7 +77,6 @@ public class HadoopJob extends Configured implements Tool {
         }
         Logger.getRootLogger().info("EXPECTING MESSAGE FORMAT: " + conf.get("input.format"));
 
-        //Create the job configuration and set jar
         JobConf jobConf = new JobConf(conf);
         if (cmd.hasOption("remote") )
         {
@@ -138,7 +88,7 @@ public class HadoopJob extends Configured implements Tool {
         }
         Path jarTarget = new Path(
             getClass().getProtectionDomain().getCodeSource().getLocation()
-            + "../kafka-hadoop-consumer-jar-with-dependencies.jar"
+            + "../kafka-hadoop-loader.jar"
         );
         if (new File(jarTarget.toUri() ).exists())
         {
@@ -153,9 +103,9 @@ public class HadoopJob extends Configured implements Tool {
             Logger.getRootLogger().info("Using parent jar: " + jobConf.getJar());
         }
 
-        //Launch the job
+        //Ready to launch
         Job job = new Job(jobConf, "kafka.hadoop.loader");
-        job.setMapperClass(KafkaMapper.class);
+        job.setMapperClass(HadoopJobMapper.class);
         job.setInputFormatClass(KafkaInputFormat.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
@@ -165,35 +115,13 @@ public class HadoopJob extends Configured implements Tool {
         KafkaOutputFormat.setCompressOutput(job, true);
         Logger.getRootLogger().info("Output hdfs location: " + hdfsPath);
         boolean success = job.waitForCompletion(true);
-        if (success) {
-            commit(conf);
-        }
         return success ? 0: -1;
     }
 
     private void printHelpAndExit(Options options) {
         HelpFormatter formatter = new HelpFormatter();
-        formatter.printHelp( "kafka.consumer.hadoop", options );        
+        formatter.printHelp( "kafka-hadoop-loader.jar", options );
         System.exit(0);
-    }
-
-    private void commit(Configuration conf) throws IOException {
-        ZkUtils zk = new ZkUtils(conf);
-        try {
-            String group = conf.get("kafka.groupid");
-            String[] topics = conf.get("kafka.topics").split(",");
-            for(String topic: topics)
-            {
-                zk.commit(group, topic);
-            }
-        } catch (Exception e) {
-            rollback();
-        } finally {
-            zk.close();
-        }
-    }
-
-    private void rollback() {
     }
 
     @SuppressWarnings("static-access")

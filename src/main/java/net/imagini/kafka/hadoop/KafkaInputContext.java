@@ -1,4 +1,4 @@
-package com.visualdna.kafka.hadoop;
+package net.imagini.kafka.hadoop;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -82,11 +82,26 @@ public class KafkaInputContext implements Closeable {
         }
     }
 
-    public void close() throws IOException {
-        fetcher.stop = true;
-        //fetcher.interrupt();
-        while (!fetcher.stopped);
-        consumer.close();
+    /**
+     * 
+     * @param key Key to load the input for the mapper - will be the date of the message
+     * @param value Value to load the input for the mapper - will be the message payload
+     * @return new watermark
+     * @throws IOException
+     */
+    public long getNext(LongWritable key, BytesWritable value) throws IOException {
+        if ( !hasMore() ) return -1L;
+
+        MessageAndOffset messageOffset = iterator.next();
+        Message message = messageOffset.message();
+        curOffset = messageOffset.offset();
+
+        //set the key as the message offset
+        key.set(curOffset - message.size() - 4);
+
+        //set the value to be the event payload
+        value.set(message.payload().array(), message.payload().arrayOffset(), message.payloadSize());
+        return curOffset;
     }
 
     private boolean hasMore() {
@@ -119,28 +134,6 @@ public class KafkaInputContext implements Closeable {
         }
     }
 
-    /**
-     * 
-     * @param key Key to load the input for the mapper - will be the date of the message
-     * @param value Value to load the input for the mapper - will be the message payload
-     * @return new watermark
-     * @throws IOException
-     */
-    public long getNext(LongWritable key, BytesWritable value) throws IOException {
-        if ( !hasMore() ) return -1L;
-
-        MessageAndOffset messageOffset = iterator.next();
-        Message message = messageOffset.message();
-        curOffset = messageOffset.offset();
-
-        //set the key as the message offset
-        key.set(curOffset - message.size() - 4);
-
-        //set the value to be the event payload
-        value.set(message.payload().array(), message.payload().arrayOffset(), message.payloadSize());
-        return curOffset;
-    }
-
     public long getStartOffset() {
         if (startOffset <= 0) {
             startOffset = consumer.getOffsetsBefore(topic, partition, -2L, 1)[0];
@@ -161,6 +154,13 @@ public class KafkaInputContext implements Closeable {
             lastOffset = consumer.getOffsetsBefore(topic, partition, -1L, 1)[0];
         }
         return lastOffset;
+    }
+
+    public void close() throws IOException {
+        fetcher.stop = true;
+        //fetcher.interrupt();
+        while (!fetcher.stopped);
+        consumer.close();
     }
 
     static class FetchThread extends Thread {

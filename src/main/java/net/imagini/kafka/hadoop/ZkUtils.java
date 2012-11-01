@@ -1,4 +1,4 @@
-package com.visualdna.kafka.hadoop;
+package net.imagini.kafka.hadoop;
 
 import java.io.Closeable;
 import java.util.ArrayList;
@@ -38,7 +38,7 @@ public class ZkUtils implements Closeable {
         LOG.info("Connected zk");
     }
 
-    public String getBroker(String id) {
+    public String getBrokerName(String id) {
         if (brokers == null) {
             brokers = new HashMap<String, String>();
             List<String> brokerIds = getChildrenParentMayNotExist(BROKER_IDS_PATH);
@@ -51,7 +51,7 @@ public class ZkUtils implements Closeable {
         return brokers.get(id);
     }
 
-    public List<String> getPartitions(String topic) {
+    public List<String> getBrokerPartitions(String topic) {
         List<String> partitions = new ArrayList<String>();
         List<String> brokersTopics = getChildrenParentMayNotExist( BROKER_TOPICS_PATH + "/" + topic);
         for(String broker: brokersTopics) {
@@ -67,16 +67,7 @@ public class ZkUtils implements Closeable {
         return CONSUMERS_PATH + "/" + group + "/offsets/" + topic + "/" + partition;
     }
 
-    private String getTempOffsetsPath(String group, String topic, String partition) {
-        return CONSUMERS_PATH + "/" + group + "/offsets-temp/" + topic + "/" + partition;
-    }
-
-    private String getTempOffsetsPath(String group, String topic) {
-        return CONSUMERS_PATH + "/" + group + "/offsets-temp/" + topic ;
-    }
-
-
-    public long getLastCommit(String group, String topic, String partition) {
+    public long getLastConsumedOffset(String group, String topic, String partition) {
         String znode = getOffsetsPath(group ,topic ,partition);
         String offset = client.readData(znode, true);
         if (offset == null) {
@@ -85,34 +76,21 @@ public class ZkUtils implements Closeable {
         return Long.valueOf(offset);
     }
 
-    public void setLastCommit(
+    public void commitLastConsumedOffset(
         String group, 
         String topic, 
         String partition, 
-        long commit, 
-        boolean temp
+        long offset
     )
     {
-        String path = temp 
-                ? getTempOffsetsPath(group ,topic ,partition) 
-                : getOffsetsPath(group ,topic ,partition);
+        String path = getOffsetsPath(group ,topic ,partition);
 
-        LOG.info((temp ? "TEMP" : "FINAL" ) + " OFFSET COMMIT " + path + " = " + commit);
+        LOG.info("OFFSET COMMIT " + path + " = " + offset);
         if (!client.exists(path)) {
             client.createPersistent(path, true);
         }
-        client.writeData(path, commit);
-    }
-
-    public boolean commit(String group, String topic) {
-        List<String> partitions = getChildrenParentMayNotExist(getTempOffsetsPath(group, topic));
-        for(String partition: partitions) {
-            String tempPath = getTempOffsetsPath(group, topic, partition);
-            String offset = client.readData(tempPath);
-            setLastCommit(group, topic, partition, Long.valueOf(offset), false);
-            client.delete(tempPath);
-        }
-        return true;
+        //TODO JIRA:EDA-4 use versioned zk.writeData in case antoher hadooop loaer has advanced the offset
+        client.writeData(path, offset);
     }
 
 

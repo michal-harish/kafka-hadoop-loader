@@ -1,11 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.visualdna.kafka</groupId>
+  <groupId>net.imagini.kafka</groupId>
   <artifactId>kafka-hadoop-loader</artifactId>
   <packaging>jar</packaging>
   <version>0.1.0-SNAPSHOT</version>
-  <name>Kafka Loader Hadoop Job</name>
+  <name>Kafka Loader Configurable Hadoop Job</name>
 
   <dependencies>
     <dependency>
@@ -61,7 +61,7 @@
     <repository>
         <id>visualdna-releases</id>
         <name>VisualDNA Releases</name>
-        <url>http://maven.visualdna.com/nexus/content/repositories/snapshots</url>
+        <url>http://maven.visualdna.com/nexus/content/repositories/releases</url>
     </repository>
     <repository>
         <id>cloudera</id>
@@ -104,11 +104,11 @@
       <plugin>
           <artifactId>maven-assembly-plugin</artifactId>
           <configuration>
-              <finalName>kafka-hadoop-consumer</finalName>
+              <finalName>kafka-hadoop-loader</finalName>
               <appendAssemblyId>false</appendAssemblyId>
               <archive>
                   <manifest>
-                      <mainClass>com.visualdna.kafka.hadoop.HadoopJob</mainClass>
+                      <mainClass>net.imagini.kafka.hadoop.HadoopJob</mainClass>
                   </manifest>
               </archive>
             <descriptorRefs>
