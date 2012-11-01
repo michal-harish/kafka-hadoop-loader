@@ -46,15 +46,14 @@ ANATOMY
 
 
 
-ARGUMENTS FOR RUNNING ON KAFKA CENTRAL CLUSTER
+ARGUMENTS FOR RUNNING ON STAG KAFKA CENTRAL CLUSTER (CONTINUOUIS )
 ==============================================
+hadoop jar /usr/share/kafka/kafka-hadoop-loader.jar -t pageviews -z zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181 -l 5000000 -i json -r namenode-01.stag.visualdna.com /vdna/events-streamed
 
--t tracking_events -z zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181 -o 0 -l 5000000 -i json -r 10.100.8.132 /tmp/events
-
-ARGUMENTS FOR RUNNING ON HQ-MHARIS-D01:HQ-MHARIS-D02 CLUSTER WITH RESETTING THE OFFSET
+ARGUMENTS FOR RUNNING IN SIMULATION MODE FROM DEV CLUSTER (RESTART)
 ======================================================================================
 
--r 10.100.8.132 -t tracking_events -z hq-mharis-d01:2181 -o 0 -l 5000000 -i binary /tmp/events
+-r 10.100.8.132 -t sim_tracking_events -z hq-mharis-d01:2181 -o 0 -l 5000000 -i binary /tmp/events
 
 
 TO RUN FROM ECLIPSE (NO JAR)
