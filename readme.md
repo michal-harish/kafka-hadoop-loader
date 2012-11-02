@@ -48,7 +48,7 @@ ANATOMY
 
 ARGUMENTS FOR RUNNING ON STAG KAFKA CENTRAL CLUSTER (CONTINUOUIS )
 ==============================================
-hadoop jar /usr/share/kafka/kafka-hadoop-loader.jar -t pageviews -z zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181 -l 5000000 -i json -r namenode-01.stag.visualdna.com /vdna/events-streamed
+hadoop jar /usr/share/kafka/kafka-hadoop-loader.jar -t adviews,adclicks,pageviews,conversions,datasync,useractivity -z zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181 -o 0 -l 5000000 -i json -r namenode-01.stag.visualdna.com /vdna/events-streamed
 
 ARGUMENTS FOR RUNNING IN SIMULATION MODE FROM DEV CLUSTER (RESTART)
 ======================================================================================
