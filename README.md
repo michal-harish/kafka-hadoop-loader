@@ -1,7 +1,7 @@
-kafka-hadoop-consumer - OVERVIEW
-================================
+kafka-hadoop-loader
+=====================
 
-This hadoop consumer creates splits for each broker-topic-partition which creates
+This hadoop loader creates splits for each topic-broker-partition which creates
 ideal parallelism between kafka sterams and mapper tasks.
 
 Further it does not use high level consumer and communicates with zookeeper directly
@@ -48,12 +48,12 @@ ANATOMY
 LAUNCH CONFIGURATIONS
 =====================
 
-ARGUMENTS FOR RUNNING ON STAG KAFKA CENTRAL CLUSTER (CONTINUOUIS )
-------------------------------------------------------------------
+RUNNING ON VDNA STAG KAFKA CENTRAL CLUSTER
+------------------------------------------
 hadoop jar /usr/share/kafka/kafka-hadoop-loader.jar -t adviews,adclicks,pageviews,conversions,datasync,useractivity -z zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181 -o 0 -l 5000000 -i json -r namenode-01.stag.visualdna.com /vdna/events-streamed
 
-ARGUMENTS FOR RUNNING IN SIMULATION MODE FROM DEV CLUSTER (RESTART)
--------------------------------------------------------------------
+RUNNING IN SIMULATION MODE FROM DEV CLUSTER
+-------------------------------------------
 -r 10.100.8.132 -t sim_tracking_events -z hq-mharis-d01:2181 -o 0 -l 5000000 -i binary /tmp/events
 
 
