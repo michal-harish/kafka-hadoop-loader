@@ -63,8 +63,8 @@ public class HadoopJob extends Configured implements Tool {
 
         if (cmd.getOptionValue("autooffset-reset") != null)
         {
-            conf.set("kafka.autooffset.reset", cmd.getOptionValue("autooffset-reset"));
-            Logger.getRootLogger().info("SHOULD RESET OFFSET TO: " + conf.get("kafka.autooffset.reset"));
+            conf.set("kafka.watermark.reset", cmd.getOptionValue("autooffset-reset"));
+            Logger.getRootLogger().info("SHOULD RESET OFFSET TO: " + conf.get("kafka.watermark.reset"));
         }
 
         conf.set("input.format", cmd.getOptionValue("input-format", "json"));

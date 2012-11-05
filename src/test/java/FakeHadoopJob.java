@@ -1,4 +1,4 @@
-package net.imagini.kafka.hadoop;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -20,7 +20,7 @@ import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.JobContext;
 
-public class Test {
+public class FakeHadoopJob {
 
     static protected long grandTotal = 0;
     
@@ -37,10 +37,10 @@ public class Test {
         conf.set("kafka.zk.connectiontimeout.ms", "10000");
         conf.set("kafka.topics", "adviews,adclicks,pageviews,conversions,datasync,useractivity");
         conf.set("kafka.groupid", "hadoop-loader-test");
-        //conf.set("kafka.autooffset.reset", "earliest");
-
+        conf.set("kafka.watermark.reset", "earliest");
+        
         JobContext dummyJobContext  = new Job(conf);
-
+        
         KafkaInputFormat realInputFormat = new KafkaInputFormat();
         List<InputSplit> splits = realInputFormat.getSplits(dummyJobContext);
 
@@ -72,13 +72,12 @@ public class Test {
         private KafkaInputRecordReader realRecordReader;
         private String info;
 
-        public MockMapTask(InputSplit split, JobConf jobConf) throws IOException, InterruptedException
+        public MockMapTask(InputSplit split, Configuration conf) throws IOException, InterruptedException
         {
             this.split = (KafkaInputSplit) split;
             info = this.split.getTopic() + "/"  + this.split.getBrokerHost() +":" + this.split.getPartition();
-
             realRecordReader = new KafkaInputRecordReader();
-            realRecordReader.initialize(split,jobConf);
+            realRecordReader.initialize(split, conf);
         }
 
         public String call() {

@@ -64,7 +64,7 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
         consumer =  new SimpleConsumer(this.split.getBrokerHost(), this.split.getBrokerPort(), timeout, bufferSize);
 
         fetchSize = conf.getInt("kafka.fetch.size", 1024 * 1024);
-        reset = conf.get("kafka.autooffset.reset", "watermark");
+        reset = conf.get("kafka.watermark.reset", "watermark");
         earliestOffset = getEarliestOffset();
         latestOffset = getLatestOffset();
 
