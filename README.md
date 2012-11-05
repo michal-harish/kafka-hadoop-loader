@@ -1,7 +1,7 @@
-kafka-hadoop-consumer - OVERVIEW
-================================
+kafka-hadoop-loader
+=====================
 
-This hadoop consumer creates splits for each broker-topic-partition which creates
+This hadoop loader creates splits for each topic-broker-partition which creates
 ideal parallelism between kafka sterams and mapper tasks.
 
 Further it does not use high level consumer and communicates with zookeeper directly
@@ -16,9 +16,9 @@ which is in turn picked up by Output Format and partitioned on the hdfs-level to
 
 
 ANATOMY
-===============================
+-------
 
-    *HadoopJob
+    HadoopJob
         -> KafkaInputFormat
             -> zkUtils.getBrokerPartitions 
             -> FOR EACH ( broker-topic-partition ) CREATE KafkaInputSplit
@@ -42,31 +42,32 @@ ANATOMY
                 -> zkUtils.commitLastConsumedOffset
 
 
+LAUNCH CONFIGURATIONS
+=====================
 
-ARGUMENTS FOR RUNNING ON STAG KAFKA CENTRAL CLUSTER (CONTINUOUIS )
-==============================================
-hadoop jar /usr/share/kafka/kafka-hadoop-loader.jar -t adviews,adclicks,pageviews,conversions,datasync,useractivity -z zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181 -o earliest -i json -r namenode-01.stag.visualdna.com /vdna/events-streamed
+RUNNING ON VDNA STAG KAFKA CENTRAL CLUSTER
+------------------------------------------
+hadoop jar /usr/share/kafka/kafka-hadoop-loader.jar -t adviews,adclicks,pageviews,conversions,datasync,useractivity -z zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181 -o 0 -l 5000000 -i json -r namenode-01.stag.visualdna.com /vdna/events-streamed
 
-ARGUMENTS FOR RUNNING IN SIMULATION MODE FROM DEV CLUSTER (RESTART)
-======================================================================================
-
--r 10.100.8.132 -t sim_tracking_events -z hq-mharis-d01:2181 -o earliest -i binary /tmp/events
+RUNNING IN SIMULATION MODE FROM DEV CLUSTER
+-------------------------------------------
+-r 10.100.8.132 -t sim_tracking_events -z hq-mharis-d01:2181 -o 0 -l 5000000 -i binary /tmp/events
 
 
 TO RUN FROM ECLIPSE (NO JAR)
-============================
+----------------------------
     add run configuration arguments: -r [-t <coma_separated_topic_list>] [-z <zookeeper>] [target_hdfs_path]
 
 
 TO RUN REMOTELY
-===============
+---------------
     $ mvn assembly:single
     $ java -jar kafka-hadoop-loader.jar -r [-t <coma_separated_topic_list>] [-z <zookeeper>] [target_hdfs_path]
     TODO -r check if jar exists otherwise use addJarByClass
 
 
 TO RUN AS HADOOP JAR
-====================
+--------------------
     $ mvn assembly:single
     $ hadoop jar kafka-hadoop-loader.jar [-z <zookeeper>] [-t <topic>] [target_hdfs_path]
 
