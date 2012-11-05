@@ -25,11 +25,8 @@ ANATOMY
         -> FOR EACH ( KafkaInputSplit ) CREATE MapTask:
             -> KafkaInputRecordReader( KafkaInputSplit[i] )
                 -> zkUtils.getLastConsumedOffset
-                -> KafkaInputContext 
-                    -> ArrayBlockingQueue
-                    -> KafkaInputContext.FetchThread ( ! the darkest corner of the hadoop loader )
-                        -> SimpleConsumer
-                        -> start() -> run() { FetchRequest -> add messages to FetchRequest.queue -> ..}
+                -> intialize simple kafka consumer
+                -> reset watermark if given as option
                 -> WHILE ( KafkaInputContext.hasMore() )
                     -> KafkaInputContext.FetchThread.fetchMore() 
                         -> poll FetchRequest.queue
@@ -48,12 +45,12 @@ ANATOMY
 
 ARGUMENTS FOR RUNNING ON STAG KAFKA CENTRAL CLUSTER (CONTINUOUIS )
 ==============================================
-hadoop jar /usr/share/kafka/kafka-hadoop-loader.jar -t adviews,adclicks,pageviews,conversions,datasync,useractivity -z zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181 -o 0 -l 5000000 -i json -r namenode-01.stag.visualdna.com /vdna/events-streamed
+hadoop jar /usr/share/kafka/kafka-hadoop-loader.jar -t adviews,adclicks,pageviews,conversions,datasync,useractivity -z zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181 -o earliest -i json -r namenode-01.stag.visualdna.com /vdna/events-streamed
 
 ARGUMENTS FOR RUNNING IN SIMULATION MODE FROM DEV CLUSTER (RESTART)
 ======================================================================================
 
--r 10.100.8.132 -t sim_tracking_events -z hq-mharis-d01:2181 -o 0 -l 5000000 -i binary /tmp/events
+-r 10.100.8.132 -t sim_tracking_events -z hq-mharis-d01:2181 -o earliest -i binary /tmp/events
 
 
 TO RUN FROM ECLIPSE (NO JAR)

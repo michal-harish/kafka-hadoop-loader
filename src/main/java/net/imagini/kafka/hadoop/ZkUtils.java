@@ -10,13 +10,12 @@ import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.exception.ZkMarshallingError;
 import org.I0Itec.zkclient.exception.ZkNoNodeException;
 import org.I0Itec.zkclient.serialize.ZkSerializer;
-import org.apache.hadoop.conf.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ZkUtils implements Closeable {
 
-    private static Logger LOG = LoggerFactory.getLogger(ZkUtils.class);
+    private static Logger log = LoggerFactory.getLogger(ZkUtils.class);
 
     private static final String CONSUMERS_PATH = "/consumers";
     private static final String BROKER_IDS_PATH = "/brokers/ids";
@@ -25,17 +24,14 @@ public class ZkUtils implements Closeable {
     private ZkClient client ;
     Map<String, String> brokers ;
 
-    public ZkUtils(Configuration config) {
-        connect(config);
+    public ZkUtils(String zkConnectString, int sessionTimeout, int connectTimeout) {
+        client = new ZkClient(zkConnectString, sessionTimeout, connectTimeout, new StringSerializer() );
+        log.info("Connected zk");
     }
-
-    private void connect(Configuration config) {
-        LOG.info("Connecting zk");
-        String zk = config.get("kafka.zk.connect");
-        int stimeout = config.getInt("kafka.zk.sessiontimeout.ms", 10000);
-        int ctimeout = config.getInt("kafka.zk.connectiontimeout.ms", 10000);
-        client = new ZkClient(zk, stimeout, ctimeout, new StringSerializer() );
-        LOG.info("Connected zk");
+    
+    public ZkUtils(String zkConnectString)
+    {
+        this(zkConnectString, 10000, 10000);
     }
 
     public String getBrokerName(String id) {
@@ -44,7 +40,7 @@ public class ZkUtils implements Closeable {
             List<String> brokerIds = getChildrenParentMayNotExist(BROKER_IDS_PATH);
             for(String bid: brokerIds) {
                 String data = client.readData(BROKER_IDS_PATH + "/" + bid);
-                LOG.info("Broker " + bid + " " + data);
+                log.info("Broker " + bid + " " + data);
                 brokers.put(bid, data.split(":", 2)[1]);
             }
         }
@@ -85,7 +81,7 @@ public class ZkUtils implements Closeable {
     {
         String path = getOffsetsPath(group ,topic ,partition);
 
-        LOG.info("OFFSET COMMIT " + path + " = " + offset);
+        log.info("OFFSET COMMIT " + path + " = " + offset);
         if (!client.exists(path)) {
             client.createPersistent(path, true);
         }

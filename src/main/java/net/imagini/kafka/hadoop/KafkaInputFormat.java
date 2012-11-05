@@ -19,7 +19,11 @@ public class KafkaInputFormat extends InputFormat<LongWritable, BytesWritable> {
     @Override
     public List<InputSplit> getSplits(JobContext context) throws IOException, InterruptedException {
         Configuration conf = context.getConfiguration();
-        ZkUtils zk = new ZkUtils(conf);
+        ZkUtils zk = new ZkUtils(
+            conf.get("kafka.zk.connect"),
+            conf.getInt("kafka.zk.sessiontimeout.ms", 10000),
+            conf.getInt("kafka.zk.connectiontimeout.ms", 10000)
+        );
         String[] inputTopics = conf.get("kafka.topics").split(",");
         String consumerGroup = conf.get("kafka.groupid");
         List<InputSplit> splits = new ArrayList<InputSplit>();

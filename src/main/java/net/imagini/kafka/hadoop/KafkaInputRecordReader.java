@@ -1,6 +1,14 @@
 package net.imagini.kafka.hadoop;
 
 import java.io.IOException;
+import java.util.Iterator;
+
+import kafka.api.FetchRequest;
+import kafka.common.ErrorMapping;
+import kafka.javaapi.consumer.SimpleConsumer;
+import kafka.javaapi.message.ByteBufferMessageSet;
+import kafka.message.Message;
+import kafka.message.MessageAndOffset;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.BytesWritable;
@@ -15,44 +23,60 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
 
     static Logger log = LoggerFactory.getLogger(KafkaInputRecordReader.class);
 
-    private KafkaInputContext kcontext;
-    private KafkaInputSplit ksplit;
-    private TaskAttemptContext context;
-    private int maxProcessMessages;
+    private Configuration conf;
+
+    private KafkaInputSplit split;
+    //private TaskAttemptContext context;
+
+    private SimpleConsumer consumer ;
+    private int fetchSize;
+    private String topic;
+    private String reset;
+
+    private int partition;
+    private long earliestOffset;
+    private long watermark;
+    private long latestOffset;
+
+    private ByteBufferMessageSet messages;
+    private Iterator<MessageAndOffset> iterator;
     private LongWritable key;
     private BytesWritable value;
-    private long startOffset;
-    private long endOffset;
-    private long currentOffsetPos;
-    private long numProcessedMessages = 0L;
-    @Override
-    public void initialize(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException 
-    {
-        this.context = context;
-        ksplit = (KafkaInputSplit) split;
 
-        Configuration conf = context.getConfiguration();
-        maxProcessMessages = conf.getInt("kafka.limit", -1);
+    private long numProcessedMessages = 0L;
+
+    @Override
+    public void initialize(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException
+    {
+        initialize(split, context.getConfiguration());
+    }
+
+    public void initialize(InputSplit split, Configuration conf) throws IOException, InterruptedException
+    {
+        this.conf = conf;
+        this.split = (KafkaInputSplit) split;
+        topic = this.split.getTopic();
+        partition = this.split.getPartition();
+        watermark = this.split.getWatermark();
 
         int timeout = conf.getInt("kafka.socket.timeout.ms", 30000);
-        int bsize = conf.getInt("kafka.socket.buffersize", 64*1024);
-        int fsize = conf.getInt("kafka.fetch.size", 1024 * 1024);
-        String reset = conf.get("kafka.autooffset.reset");
-        kcontext = new KafkaInputContext(
-            ksplit.getBrokerId() + ":" + ksplit.getBroker(),
-            ksplit.getTopic(), 
-            ksplit.getPartition(),
-            ksplit.getWatermark(),
-            fsize, 
-            timeout, 
-            bsize, 
-            reset
-        );
-        startOffset = kcontext.getStartOffset();
-        endOffset = kcontext.getLastOffset();
+        int bufferSize = conf.getInt("kafka.socket.buffersize", 64*1024);
+        consumer =  new SimpleConsumer(this.split.getBrokerHost(), this.split.getBrokerPort(), timeout, bufferSize);
+
+        fetchSize = conf.getInt("kafka.fetch.size", 1024 * 1024);
+        reset = conf.get("kafka.autooffset.reset", "watermark");
+        earliestOffset = getEarliestOffset();
+        latestOffset = getLatestOffset();
+
+        if ("earliest".equals(reset)) {
+            resetWatermark(-1);
+        } else if("latest".equals(reset)) {
+            resetWatermark(latestOffset);
+        }
+
         log.info(
-            "JobId {} {} Start: {} End: {}", 
-            new Object[]{context.getJobID(), ksplit, startOffset, endOffset }
+            "Split {} Topic: {} Broker: {} Partition: {} Earliest: {} Latest: {} Starting: {}", 
+            new Object[]{this.split, topic, this.split.getBrokerId(), partition, earliestOffset, latestOffset, watermark }
         );
     }
 
@@ -65,15 +89,46 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
         if (value == null) {
             value = new BytesWritable();
         }
-        if (maxProcessMessages < 0 || numProcessedMessages < maxProcessMessages) {
-            long newOffset = kcontext.getNext(key, value);
-            if (newOffset > 0) {
-                currentOffsetPos = newOffset;
-                numProcessedMessages++;
-                return true;
+
+        if (messages == null) {
+            FetchRequest request = new FetchRequest(topic, partition, watermark, fetchSize);
+            log.info("fetching offset {}", watermark);
+            messages = consumer.fetch(request);
+            if (messages.getErrorCode() == ErrorMapping.OffsetOutOfRangeCode())
+            {
+                log.info("Out of bounds = " + watermark);
+                return false;
+            }
+            if (messages.getErrorCode() != 0)
+            {
+                log.warn("Messages fetch error code: " + messages.getErrorCode());
+                return false;
+            } else {
+                iterator = messages.iterator();
+                watermark += messages.validBytes();
+                if (!iterator.hasNext())
+                {
+                    log.info("No more messages");
+                    return false;
+                }
             }
         }
-        log.info("Next Offset " + currentOffsetPos);
+
+        if (iterator.hasNext())
+        {
+            MessageAndOffset messageOffset = iterator.next();
+            Message message = messageOffset.message();
+            key.set(watermark - message.size() - 4);
+            value.set(message.payload().array(), message.payload().arrayOffset(), message.payloadSize());
+            numProcessedMessages++;
+            if (!iterator.hasNext())
+            {
+                messages = null;
+                iterator = null;
+            }
+            return true;
+        }
+        log.warn("Unexpected iterator end.");
         return false;
     }
 
@@ -92,29 +147,53 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
     @Override
     public float getProgress() throws IOException, InterruptedException 
     {
-        if (currentOffsetPos >= endOffset || startOffset == endOffset) {
+        if (watermark >= latestOffset || earliestOffset == latestOffset) {
             return 1.0f;
         }
-
-        if (maxProcessMessages < 0) {
-            return Math.min(1.0f, (currentOffsetPos - startOffset) / (float)(endOffset - startOffset));
-        } else {
-            return Math.min(1.0f, numProcessedMessages / (float)maxProcessMessages);
-        }
+        return Math.min(1.0f, (watermark - earliestOffset) / (float)(latestOffset - earliestOffset));
     }
 
     @Override
     public void close() throws IOException
     {
-        kcontext.close();
-        if (numProcessedMessages == 0L) return;
+        if (numProcessedMessages >0)
+        {
+            log.info("NUM PROCESSED MESSAGED " + numProcessedMessages);
 
-        Configuration conf = context.getConfiguration();
-        ZkUtils zk = new ZkUtils(conf);
-        String group = conf.get("kafka.groupid");
-        String partition = ksplit.getBrokerId() + "-" + ksplit.getPartition();
-        zk.commitLastConsumedOffset(group, ksplit.getTopic(), partition, currentOffsetPos);
-        zk.close();
+            ZkUtils zk = new ZkUtils(
+                conf.get("kafka.zk.connect"),
+                conf.getInt("kafka.zk.sessiontimeout.ms", 10000),
+                conf.getInt("kafka.zk.connectiontimeout.ms", 10000)
+            );
+
+            String group = conf.get("kafka.groupid");
+            String partition = split.getBrokerId() + "-" + split.getPartition();
+            zk.commitLastConsumedOffset(group, split.getTopic(), partition, watermark);
+            zk.close();
+        }
+        consumer.close();
+    }
+
+    private long getEarliestOffset() {
+        if (earliestOffset <= 0) {
+            earliestOffset = consumer.getOffsetsBefore(topic, partition, -2L, 1)[0];
+        }
+        return earliestOffset;
+    }
+
+    private long getLatestOffset() {
+        if (latestOffset <= 0) {
+            latestOffset = consumer.getOffsetsBefore(topic, partition, -1L, 1)[0];
+        }
+        return latestOffset;
+    }
+
+    private void resetWatermark(long offset) {
+        if (offset <= 0) {
+            offset = consumer.getOffsetsBefore(topic, partition, -2L, 1)[0];
+            log.info("Smallest Offset {}", offset);
+        }
+        watermark = earliestOffset = offset;
     }
 
 }

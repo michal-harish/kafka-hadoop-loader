@@ -56,10 +56,25 @@ public class KafkaInputSplit extends InputSplit implements Writable {
         return brokerId;
     }
 
+    /**
+     * @return broker-id:host:port
+     */
     public String getBroker() {
         return broker;
     }
 
+    public String getBrokerHost()
+    {
+        String[] hostPort = broker.split(":");
+        return hostPort[0];
+    }
+
+    public int getBrokerPort()
+    {
+        String[] hostPort = broker.split(":");
+        return Integer.valueOf(hostPort[1]);
+    }
+    
     public int getPartition() {
         return partition;
     }

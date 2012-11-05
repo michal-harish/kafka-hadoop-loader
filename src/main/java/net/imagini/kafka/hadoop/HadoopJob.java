@@ -67,9 +67,6 @@ public class HadoopJob extends Configured implements Tool {
             Logger.getRootLogger().info("SHOULD RESET OFFSET TO: " + conf.get("kafka.autooffset.reset"));
         }
 
-        conf.setInt("kafka.limit", Integer.valueOf(cmd.getOptionValue("limit", "25000000")));
-        Logger.getRootLogger().info("MAXIMUM MESSAGES PROCESSED BY THE JOB: " + conf.get("kafka.limit"));
-
         conf.set("input.format", cmd.getOptionValue("input-format", "json"));
         if (!conf.get("input.format").equals("json") && !conf.get("input.format").equals("binary"))
         {
@@ -149,12 +146,6 @@ public class HadoopJob extends Configured implements Tool {
                 .hasArg()
                 .withDescription("Offset reset")
                 .create("o"));
-
-        options.addOption(OptionBuilder.withArgName("limit")
-                .withLongOpt("limit")
-                .hasArg()
-                .withDescription("Kafka limit (bytes)")
-                .create("l"));
 
         options.addOption(OptionBuilder.withArgName("ip_address")
                 .withLongOpt("remote")
