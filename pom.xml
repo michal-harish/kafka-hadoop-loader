@@ -4,7 +4,7 @@
   <groupId>net.imagini.kafka</groupId>
   <artifactId>kafka-hadoop-loader</artifactId>
   <packaging>jar</packaging>
-  <version>1.0.0</version>
+  <version>1.1.0-SNAPSHOT</version>
   <name>Kafka Loader Configurable Hadoop Job</name>
 
   <dependencies>
@@ -13,19 +13,11 @@
         <artifactId>kafka-core</artifactId>
         <version>0.7.3-1</version>
     </dependency> 
-
     <dependency>
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-client</artifactId>
         <version>2.0.0-mr1-cdh4.0.0</version>
     </dependency>
-
-    <dependency>
-        <groupId>co.gridport.protos</groupId>
-        <artifactId>test-protos</artifactId>
-        <version>0.0.1-SNAPSHOT</version>    
-    </dependency>
-
     <dependency>
         <groupId>commons-httpclient</groupId>
         <artifactId>commons-httpclient</artifactId>
@@ -116,6 +108,24 @@
             </descriptorRefs>
           </configuration>
       </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-deploy-plugin</artifactId>
+            <version>2.6</version>
+            <goals>
+                <goal>deploy-file</goal>
+            </goals>
+            <configuration>
+                <repositoryId>visualdna-releases</repositoryId>
+                <packaging>jar</packaging>
+                <generatePom>true</generatePom>
+<url>https://maven.visualdna.com/nexus/content/repositories/releases/</url>
+                <groupId>net.imagini.kafka</groupId>
+                <artifactId>kafka-hadoop-loader</artifactId>
+                <version>${project.version}</version>
+                <file>target/kafka-hadoop-loader.jar</file>
+            </configuration>
+        </plugin>        
     </plugins>
   </build>
 </project>

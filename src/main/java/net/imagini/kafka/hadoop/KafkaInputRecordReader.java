@@ -72,6 +72,8 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
             resetWatermark(-1);
         } else if("latest".equals(reset)) {
             resetWatermark(latestOffset);
+        } else if (watermark < earliestOffset) {
+            resetWatermark(-1);
         }
 
         log.info(
@@ -191,7 +193,7 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
     private void resetWatermark(long offset) {
         if (offset <= 0) {
             offset = consumer.getOffsetsBefore(topic, partition, -2L, 1)[0];
-            log.info("Smallest Offset {}", offset);
+            log.info("Resetting offset to smallest {}", offset);
         }
         watermark = earliestOffset = offset;
     }
