@@ -2,14 +2,11 @@ package net.imagini.kafka.hadoop;
 
 import java.io.IOException;
 
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
-
-import co.gridport.protos.VDNAEvent.Event;
-
-import com.googlecode.protobuf.format.JsonFormat;
 
 public class HadoopJobMapper extends Mapper<LongWritable, BytesWritable, Text, Text> {
     @Override
@@ -27,9 +24,12 @@ public class HadoopJobMapper extends Mapper<LongWritable, BytesWritable, Text, T
             } else if (context.getConfiguration().get("input.format").equals("binary"))
             {
                 //Open the proto
+                throw new NotImplementedException("Protos disabled");
+                /*
                 Event event = Event.parseFrom(value.copyBytes());
                 date.set(event.getDate());
                 out.set( JsonFormat.printToString(event));
+                */
             }
             else
             {
