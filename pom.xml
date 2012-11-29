@@ -4,14 +4,14 @@
   <groupId>net.imagini.kafka</groupId>
   <artifactId>kafka-hadoop-loader</artifactId>
   <packaging>jar</packaging>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>1.0.0</version>
   <name>Kafka Loader Configurable Hadoop Job</name>
 
   <dependencies>
     <dependency>
         <groupId>org.apache.kafka</groupId>
         <artifactId>kafka-core</artifactId>
-        <version>0.7.2</version>
+        <version>0.7.3-1</version>
     </dependency> 
 
     <dependency>
@@ -53,7 +53,7 @@
     <repository>
         <id>visualdna-snapshots</id>
         <name>VisualDNA Snapshots</name>
-        <url>http://maven.visualdna.com/nexus/content/repositories/snapshots</url>
+        <url>https://maven.visualdna.com/nexus/content/repositories/snapshots</url>
         <snapshots>
             <updatePolicy>always</updatePolicy>
         </snapshots>
@@ -61,7 +61,7 @@
     <repository>
         <id>visualdna-releases</id>
         <name>VisualDNA Releases</name>
-        <url>http://maven.visualdna.com/nexus/content/repositories/releases</url>
+        <url>https://maven.visualdna.com/nexus/content/repositories/releases</url>
     </repository>
     <repository>
         <id>cloudera</id>
