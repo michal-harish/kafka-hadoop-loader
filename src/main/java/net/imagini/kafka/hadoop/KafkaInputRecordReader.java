@@ -94,7 +94,7 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
 
         if (messages == null) {
             FetchRequest request = new FetchRequest(topic, partition, watermark, fetchSize);
-            log.info("fetching offset {}", watermark);
+            log.info("fetching offset {} of topic {}", watermark, topic);
             messages = consumer.fetch(request);
             if (messages.getErrorCode() == ErrorMapping.OffsetOutOfRangeCode())
             {

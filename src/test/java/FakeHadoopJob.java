@@ -10,11 +10,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import net.imagini.kafka.hadoop.HadoopJobMapper;
 import net.imagini.kafka.hadoop.KafkaInputFormat;
 import net.imagini.kafka.hadoop.KafkaInputRecordReader;
 import net.imagini.kafka.hadoop.KafkaInputSplit;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
@@ -35,9 +38,11 @@ public class FakeHadoopJob {
         conf.set("kafka.zk.connect", "zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181");
         conf.set("kafka.zk.sessiontimeout.ms", "10000");
         conf.set("kafka.zk.connectiontimeout.ms", "10000");
-        conf.set("kafka.topics", "adviews,adclicks,pageviews,conversions,datasync,useractivity");
+        //conf.set("kafka.topics", "adviews,adclicks,pageviews,conversions,datasync,useractivity");
+        conf.set("kafka.topics", "useractivity");
         conf.set("kafka.groupid", "hadoop-loader-test");
         conf.set("kafka.watermark.reset", "earliest");
+        conf.set("input.format", "json");
         
         JobContext dummyJobContext  = new Job(conf);
         
@@ -71,9 +76,13 @@ public class FakeHadoopJob {
         private KafkaInputSplit split;
         private KafkaInputRecordReader realRecordReader;
         private String info;
+        private HadoopJobMapper mapper;
+        private Configuration conf;
 
         public MockMapTask(InputSplit split, Configuration conf) throws IOException, InterruptedException
         {
+            this.mapper = new HadoopJobMapper();
+            this.conf = conf;
             this.split = (KafkaInputSplit) split;
             info = this.split.getTopic() + "/"  + this.split.getBrokerHost() +":" + this.split.getPartition();
             realRecordReader = new KafkaInputRecordReader();
@@ -87,9 +96,11 @@ public class FakeHadoopJob {
                 while(realRecordReader.nextKeyValue())
                 {
                     //realRecordReader.getProgress
-                    realRecordReader.getCurrentKey();
-                    realRecordReader.getCurrentValue();
-                    count++;
+                    LongWritable key = realRecordReader.getCurrentKey();
+                    BytesWritable value = realRecordReader.getCurrentValue();
+                    if (mapper.map(key, value, conf) != null) {
+                        count++;
+                    }
                 }
                 realRecordReader.close();
                 success = true;
