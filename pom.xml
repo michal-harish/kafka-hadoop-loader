@@ -19,6 +19,11 @@
         <version>2.0.0-mr1-cdh4.0.0</version>
     </dependency>
     <dependency>
+        <groupId>org.codehaus.jackson</groupId>
+        <artifactId>jackson-asl</artifactId>
+        <version>0.9.5</version>
+    </dependency>
+    <dependency>
         <groupId>commons-httpclient</groupId>
         <artifactId>commons-httpclient</artifactId>
         <version>3.1</version>

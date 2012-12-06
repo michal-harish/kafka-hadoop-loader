@@ -51,7 +51,7 @@ hadoop jar /usr/share/kafka/kafka-hadoop-loader.jar -t adviews,adclicks,pageview
 
 RUNNING IN SIMULATION MODE FROM DEV CLUSTER
 -------------------------------------------
--r 10.100.8.132 -t sim_tracking_events -z hq-mharis-d01:2181 -o 0 -l 5000000 -i binary /tmp/events
+-r 10.100.8.132 -t sim_tracking_events -z hq-mharis-d01:2181 -o 0 -l 5000000 -i protobuf /tmp/events
 
 
 TO RUN FROM ECLIPSE (NO JAR)
