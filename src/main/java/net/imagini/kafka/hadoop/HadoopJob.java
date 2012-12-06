@@ -68,7 +68,7 @@ public class HadoopJob extends Configured implements Tool {
         }
 
         conf.set("input.format", cmd.getOptionValue("input-format", "json"));
-        if (!conf.get("input.format").equals("json") && !conf.get("input.format").equals("binary"))
+        if (!conf.get("input.format").equals("json") && !conf.get("input.format").equals("protobuf"))
         {
             printHelpAndExit(options);
         }
@@ -164,7 +164,7 @@ public class HadoopJob extends Configured implements Tool {
                 .withDescription("Topic filter")
                 .create("f"));
 
-        options.addOption(OptionBuilder.withArgName("json|binary")
+        options.addOption(OptionBuilder.withArgName("json|protobuf|avro")
                 .withLongOpt("input-format")
                 .hasArg()
                 .withDescription("How are the input messages formatted in the topic")

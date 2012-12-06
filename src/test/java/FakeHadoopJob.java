@@ -38,14 +38,13 @@ public class FakeHadoopJob {
         conf.set("kafka.zk.connect", "zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181");
         conf.set("kafka.zk.sessiontimeout.ms", "10000");
         conf.set("kafka.zk.connectiontimeout.ms", "10000");
-        //conf.set("kafka.topics", "adviews,adclicks,pageviews,conversions,datasync,useractivity");
-        conf.set("kafka.topics", "useractivity");
+        conf.set("kafka.topics", "adviews,adclicks,pageviews,conversions,datasync,useractivity");
         conf.set("kafka.groupid", "hadoop-loader-test");
         conf.set("kafka.watermark.reset", "earliest");
         conf.set("input.format", "json");
-        
+
         JobContext dummyJobContext  = new Job(conf);
-        
+
         KafkaInputFormat realInputFormat = new KafkaInputFormat();
         List<InputSplit> splits = realInputFormat.getSplits(dummyJobContext);
 
