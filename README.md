@@ -27,10 +27,7 @@ ANATOMY
                 -> zkUtils.getLastConsumedOffset
                 -> intialize simple kafka consumer
                 -> reset watermark if given as option
-                -> WHILE ( KafkaInputContext.hasMore() )
-                    -> KafkaInputContext.FetchThread.fetchMore() 
-                        -> poll FetchRequest.queue
-                -> READ nextKeyValue()
+                -> WHILE nextKeyValue()
                     -> KafkaInputContext.getNext() -> (offset,message):newOffset
                     -> KafkaInputRecordReader advance currentOffset+=newOffset and numProcessedMessages++
                     -> HadoopJobMapper(offset,message) -> (date, message)
