@@ -22,9 +22,10 @@ public class HadoopJobMapper extends Mapper<LongWritable, BytesWritable, Text, T
     @Override
     public void map(LongWritable key, BytesWritable value, Context context) throws IOException {
         try {
-            Text outValue = new Text();
             Text outDateKey = map(key, value, context.getConfiguration());
             if (outDateKey != null) {
+                Text outValue = new Text();
+                outValue.set(value.getBytes(),0, value.getLength());
                 context.write(outDateKey, outValue);
             }
         } catch (InterruptedException e) {
@@ -42,10 +43,8 @@ public class HadoopJobMapper extends Mapper<LongWritable, BytesWritable, Text, T
             fields.put("event_type", null);
             try {
                 parseMinimumJsonMessage(value.getBytes(), fields);
-
                 String eventDate = fields.get("date");
                 String eventType = fields.get("event_type");
-
                 if (eventDate != null && eventType != null && eventType.equals("esVDNAAppUserActionEvent")) {
                     Text outDateKey = new Text();
                     outDateKey.set(eventDate.getBytes());

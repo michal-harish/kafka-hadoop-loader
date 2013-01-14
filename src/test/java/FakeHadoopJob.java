@@ -40,7 +40,7 @@ public class FakeHadoopJob {
         conf.set("kafka.zk.connectiontimeout.ms", "10000");
         conf.set("kafka.topics", "adviews,adclicks,pageviews,conversions,datasync,useractivity");
         conf.set("kafka.groupid", "hadoop-loader-test");
-        conf.set("kafka.watermark.reset", "earliest");
+        //conf.set("kafka.watermark.reset", "earliest");
         conf.set("input.format", "json");
 
         JobContext dummyJobContext  = new Job(conf);
