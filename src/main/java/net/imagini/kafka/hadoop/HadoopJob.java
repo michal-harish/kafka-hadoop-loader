@@ -59,6 +59,7 @@ public class HadoopJob extends Configured implements Tool {
         Logger.getRootLogger().info("Registering under consumer group: " + conf.get("kafka.groupid")); 
 
         conf.set("kafka.zk.connect", cmd.getOptionValue("zk-connect", "hq-mharis-d02:2181"));
+
         Logger.getRootLogger().info("Using ZooKepper connection: " + conf.get("kafka.zk.connect"));
 
         if (cmd.getOptionValue("autooffset-reset") != null)
@@ -109,7 +110,7 @@ public class HadoopJob extends Configured implements Tool {
         job.setOutputFormatClass(KafkaOutputFormat.class);
         job.setNumReduceTasks(0);
         KafkaOutputFormat.setOutputPath(job, new Path(hdfsPath));
-        KafkaOutputFormat.setCompressOutput(job, true);
+        KafkaOutputFormat.setCompressOutput(job, cmd.getOptionValue("compression", "on").equals("on"));
         Logger.getRootLogger().info("Output hdfs location: " + hdfsPath);
         boolean success = job.waitForCompletion(true);
         return success ? 0: -1;
@@ -146,6 +147,12 @@ public class HadoopJob extends Configured implements Tool {
                 .hasArg()
                 .withDescription("Offset reset")
                 .create("o"));
+
+        options.addOption(OptionBuilder.withArgName("compression")
+            .withLongOpt("compress-output")
+            .hasArg()
+            .withDescription("GZip output compression on|off")
+            .create("c"));
 
         options.addOption(OptionBuilder.withArgName("ip_address")
                 .withLongOpt("remote")
