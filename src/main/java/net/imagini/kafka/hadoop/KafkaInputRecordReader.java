@@ -68,6 +68,8 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
         earliestOffset = getEarliestOffset();
         latestOffset = getLatestOffset();
 
+        //log.info("Last watermark for {} to {}", topic +":"+partition, watermark);
+
         if ("earliest".equals(reset)) {
             resetWatermark(-1);
         } else if("latest".equals(reset)) {
@@ -94,7 +96,7 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
 
         if (messages == null) {
             FetchRequest request = new FetchRequest(topic, partition, watermark, fetchSize);
-            log.info("fetching offset {} of topic {}", watermark, topic);
+            log.info("{} fetching offset {} ", topic+":" + split.getBrokerId() +":" + partition, watermark);
             messages = consumer.fetch(request);
             if (messages.getErrorCode() == ErrorMapping.OffsetOutOfRangeCode())
             {
@@ -110,7 +112,7 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
                 watermark += messages.validBytes();
                 if (!iterator.hasNext())
                 {
-                    log.info("No more messages");
+                    //log.info("No more messages");
                     return false;
                 }
             }
@@ -158,10 +160,9 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
     @Override
     public void close() throws IOException
     {
+        log.info("{} num. processed messages {} ", topic+":" + split.getBrokerId() +":" + partition, numProcessedMessages);
         if (numProcessedMessages >0)
         {
-            log.info("NUM PROCESSED MESSAGED " + numProcessedMessages);
-
             ZkUtils zk = new ZkUtils(
                 conf.get("kafka.zk.connect"),
                 conf.getInt("kafka.zk.sessiontimeout.ms", 10000),
@@ -193,8 +194,8 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
     private void resetWatermark(long offset) {
         if (offset <= 0) {
             offset = consumer.getOffsetsBefore(topic, partition, -2L, 1)[0];
-            log.info("Resetting offset to smallest {}", offset);
         }
+        log.info("{} resetting offset to {}", topic+":" + split.getBrokerId() +":" + partition, offset);
         watermark = earliestOffset = offset;
     }
 
