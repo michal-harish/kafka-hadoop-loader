@@ -17,7 +17,6 @@ import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapred.FileAlreadyExistsException;
 import org.apache.hadoop.mapred.InvalidJobConfException;
 import org.apache.hadoop.mapreduce.JobContext;
-import org.apache.hadoop.mapreduce.JobID;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter;
@@ -27,20 +26,6 @@ import org.apache.hadoop.util.ReflectionUtils;
 
 public class KafkaOutputFormat<K, V> extends FileOutputFormat<K, V>
 {
-
-    public Path getDefaultWorkFile(TaskAttemptContext context, String extension) throws IOException
-    {
-        FileOutputCommitter committer = (FileOutputCommitter) getOutputCommitter(context);
-        JobID jobId = context.getJobID();
-        return new Path(
-            committer.getWorkPath(), 
-            getUniqueFile(
-                context, "hello-" + jobId.toString().replace("job_", ""), 
-                extension
-            )
-        );
-    }
-
     public void checkOutputSpecs(JobContext job) throws FileAlreadyExistsException, IOException
     {
         // Ensure that the output directory is set and not already there
@@ -97,30 +82,29 @@ public class KafkaOutputFormat<K, V> extends FileOutputFormat<K, V>
           RecordWriter<K, V> rw = this.recordWriters.get(keyBasedPath);
           try {
               if (rw == null) {
-                    Path file = new Path(
+                  Path file = new Path(
                         ((FileOutputCommitter)getOutputCommitter(taskContext)).getWorkPath(), 
                         getUniqueFile(
                             taskContext, keyBasedPath + "/" + taskContext.getJobID().toString().replace("job_", ""), 
                             extension
                         )
-                    );
-                    FileSystem fs = file.getFileSystem(conf);
-                    FSDataOutputStream fileOut = fs.create(file, false);
-                    if (isCompressed)
-                    {
-                     rw = new LineRecordWriter<K, V>(new DataOutputStream(codec.createOutputStream(fileOut)));
-                    }
-                    else
-                    {
-                        rw = new LineRecordWriter<K, V>(fileOut);
-                    }
-                    this.recordWriters.put(keyBasedPath, rw);
+                  );
+                  FileSystem fs = file.getFileSystem(conf);
+                  FSDataOutputStream fileOut = fs.create(file, false);
+                  if (isCompressed)
+                  {
+                      rw = new LineRecordWriter<K, V>(new DataOutputStream(codec.createOutputStream(fileOut)));
+                  }
+                  else
+                  {
+                      rw = new LineRecordWriter<K, V>(fileOut);
+                  }
+                  this.recordWriters.put(keyBasedPath, rw);
               }
-            rw.write( key, value);
-            } catch (InterruptedException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+              rw.write( key, value);
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+          }
         };
 
         @Override
