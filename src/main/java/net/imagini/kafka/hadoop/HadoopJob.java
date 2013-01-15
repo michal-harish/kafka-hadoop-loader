@@ -110,8 +110,9 @@ public class HadoopJob extends Configured implements Tool {
         job.setOutputFormatClass(KafkaOutputFormat.class);
         job.setNumReduceTasks(0);
         KafkaOutputFormat.setOutputPath(job, new Path(hdfsPath));
-        KafkaOutputFormat.setCompressOutput(job, cmd.getOptionValue("compression", "on").equals("on"));
+        KafkaOutputFormat.setCompressOutput(job, cmd.getOptionValue("compress-output", "on").equals("on"));
         Logger.getRootLogger().info("Output hdfs location: " + hdfsPath);
+        Logger.getRootLogger().info("Output hdfs compression: " + KafkaOutputFormat.getCompressOutput(job));
         boolean success = job.waitForCompletion(true);
         return success ? 0: -1;
     }
