@@ -4,7 +4,7 @@
   <groupId>net.imagini.kafka</groupId>
   <artifactId>kafka-hadoop-loader</artifactId>
   <packaging>jar</packaging>
-  <version>1.2.0</version>
+  <version>1.2.2-SNAPSHOT</version>
   <name>Kafka Loader Configurable Hadoop Job</name>
 
   <dependencies>
