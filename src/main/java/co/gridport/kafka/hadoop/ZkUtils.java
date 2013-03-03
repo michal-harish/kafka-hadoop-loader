@@ -1,4 +1,4 @@
-package net.imagini.kafka.hadoop;
+package co.gridport.kafka.hadoop;
 
 import java.io.Closeable;
 import java.util.ArrayList;

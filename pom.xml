@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>net.imagini.kafka</groupId>
+  <groupId>co.gridport.kafka</groupId>
   <artifactId>kafka-hadoop-loader</artifactId>
   <packaging>jar</packaging>
   <version>1.2.2-SNAPSHOT</version>
@@ -48,17 +48,17 @@
 
   <repositories>
     <repository>
-        <id>visualdna-snapshots</id>
-        <name>VisualDNA Snapshots</name>
-        <url>https://maven.visualdna.com/nexus/content/repositories/snapshots</url>
+        <id>gridport-snapshots</id>
+        <name>GridPort Snapshots</name>
+        <url>http://maven.gridport.co/content/repositories/snapshots</url>
         <snapshots>
             <updatePolicy>always</updatePolicy>
         </snapshots>
     </repository>
     <repository>
-        <id>visualdna-releases</id>
-        <name>VisualDNA Releases</name>
-        <url>https://maven.visualdna.com/nexus/content/repositories/releases</url>
+        <id>gridport-releases</id>
+        <name>GridPort Releases</name>
+        <url>http://maven.gridport.co/content/repositories/releases</url>
     </repository>
     <repository>
         <id>cloudera</id>
@@ -84,7 +84,7 @@
               <appendAssemblyId>false</appendAssemblyId>
               <archive>
                   <manifest>
-                      <mainClass>net.imagini.kafka.hadoop.HadoopJob</mainClass>
+                      <mainClass>co.gridport.kafka.hadoop.HadoopJob</mainClass>
                   </manifest>
               </archive>
             <descriptorRefs>
@@ -92,7 +92,7 @@
             </descriptorRefs>
           </configuration>
       </plugin>
-        <plugin>
+      <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-deploy-plugin</artifactId>
             <version>2.6</version>
@@ -100,16 +100,16 @@
                 <goal>deploy-file</goal>
             </goals>
             <configuration>
-                <repositoryId>visualdna-releases</repositoryId>
+                <repositoryId>gridport-releases</repositoryId>
                 <packaging>jar</packaging>
                 <generatePom>true</generatePom>
-<url>https://maven.visualdna.com/nexus/content/repositories/releases/</url>
-                <groupId>net.imagini.kafka</groupId>
+				<url>http://maven.gridport.co/content/repositories/releases/</url>
+                <groupId>co.gridport.kafka</groupId>
                 <artifactId>kafka-hadoop-loader</artifactId>
                 <version>${project.version}</version>
                 <file>./target/kafka-hadoop-loader.jar</file>
             </configuration>
-        </plugin>        
+        </plugin>         
     </plugins>
   </build>
 </project>

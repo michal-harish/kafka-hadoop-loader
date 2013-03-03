@@ -1,3 +1,4 @@
+package co.gridport.kafka.hadoop;
 
 
 import java.io.IOException;
@@ -10,11 +11,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import net.imagini.kafka.hadoop.HadoopJobMapper;
-import net.imagini.kafka.hadoop.KafkaInputFormat;
-import net.imagini.kafka.hadoop.KafkaInputRecordReader;
-import net.imagini.kafka.hadoop.KafkaInputSplit;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.LongWritable;
@@ -22,6 +18,11 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.JobContext;
+
+import co.gridport.kafka.hadoop.HadoopJobMapper;
+import co.gridport.kafka.hadoop.KafkaInputFormat;
+import co.gridport.kafka.hadoop.KafkaInputRecordReader;
+import co.gridport.kafka.hadoop.KafkaInputSplit;
 
 public class FakeHadoopJob {
 
@@ -35,6 +36,7 @@ public class FakeHadoopJob {
         ExecutorService pool =  Executors.newCachedThreadPool();
 
         JobConf conf = new JobConf(new Configuration());
+        //TODO extract options from HadoopJob and reuse here
         conf.set("kafka.zk.connect", "zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181");
         conf.set("kafka.zk.sessiontimeout.ms", "10000");
         conf.set("kafka.zk.connectiontimeout.ms", "10000");
