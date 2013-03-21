@@ -41,11 +41,12 @@ public class HadoopJobMapper extends Mapper<LongWritable, BytesWritable, Text, T
             fields.put("timestamp", null);
             fields.put("date", null);
             fields.put("event_type", null);
+            fields.put("type", null);
             try {
                 parseMinimumJsonMessage(value.getBytes(), fields);
                 String eventDate = fields.get("date");
-                String eventType = fields.get("event_type");
-                if (eventDate != null && eventType != null && eventType.equals("esVDNAAppUserActionEvent")) {
+                String eventType = fields.get("event_type") != null? fields.get("event_type") : fields.get("type");
+                if (eventDate != null && eventType != null) {
                     Text outDateKey = new Text();
                     outDateKey.set(eventDate.getBytes());
                     return outDateKey;
@@ -55,7 +56,10 @@ public class HadoopJobMapper extends Mapper<LongWritable, BytesWritable, Text, T
                 }
             } catch (JsonParseException e) {
                 //JIRA EDA-23 - handling invalid json
-                System.err.println("Failed to parse json event message `" + new String(value.getBytes()) + "`");
+                System.out.println(
+                    "Failed to parse json event message `" 
+                    + new String(value.getBytes()) 
+                );
                 return null;
             }
         } else if (inputFormat.equals("protobuf")) {
@@ -80,8 +84,11 @@ public class HadoopJobMapper extends Mapper<LongWritable, BytesWritable, Text, T
         jp = jsonFactory.createJsonParser(json);
         try {
             int filled = 0;
+            int objects = 0;
             while(jp.nextToken() != null && filled < fields.size())
             {
+                if (jp.getCurrentToken() == JsonToken.START_OBJECT) objects++;
+                if (jp.getCurrentToken() == JsonToken.END_OBJECT &&  --objects==0) break;
                 if (jp.getCurrentToken() == JsonToken.FIELD_NAME) {
                     String fieldName = jp.getCurrentName();
                     jp.nextToken();

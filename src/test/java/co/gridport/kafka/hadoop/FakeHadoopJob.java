@@ -40,7 +40,7 @@ public class FakeHadoopJob {
         conf.set("kafka.zk.connect", "zookeeper-01.stag.visualdna.com:2181,zookeeper-02.stag.visualdna.com:2181,zookeeper-03.stag.visualdna.com:2181");
         conf.set("kafka.zk.sessiontimeout.ms", "10000");
         conf.set("kafka.zk.connectiontimeout.ms", "10000");
-        conf.set("kafka.topics", "adviews,adclicks,pageviews,conversions,datasync,useractivity");
+        conf.set("kafka.topics", "prod_useractivity,prod_profileupdates,prod_conversions,prod_pageviews,prod_adclicks,prod_adviews");
         conf.set("kafka.groupid", "hadoop-loader-test");
         //conf.set("kafka.watermark.reset", "earliest");
         conf.set("input.format", "json");

@@ -144,9 +144,9 @@ public class HadoopJob extends Configured implements Tool {
                 .create("z"));
 
         options.addOption(OptionBuilder.withArgName("offset")
-                .withLongOpt("autooffset-reset")
+                .withLongOpt("offset-reset")
                 .hasArg()
-                .withDescription("Offset reset")
+                .withDescription("Reset offset to start or end of the stream e.g. 'earliest' or 'latest'")
                 .create("o"));
 
         options.addOption(OptionBuilder.withArgName("compression")
