@@ -87,11 +87,15 @@ public class HadoopJobMapper extends Mapper<LongWritable, BytesWritable, Text, T
             int objects = 0;
             while(jp.nextToken() != null && filled < fields.size())
             {
-                if (jp.getCurrentToken() == JsonToken.START_OBJECT) objects++;
-                if (jp.getCurrentToken() == JsonToken.END_OBJECT &&  --objects==0) break;
-                if (jp.getCurrentToken() == JsonToken.FIELD_NAME) {
+                JsonToken token = jp.getCurrentToken();
+                if (token == JsonToken.START_OBJECT) objects++;
+                if (token == JsonToken.END_OBJECT &&  --objects==0) break;
+                if (token == JsonToken.FIELD_NAME) {
                     String fieldName = jp.getCurrentName();
-                    jp.nextToken();
+                    if (jp.nextToken() == JsonToken.START_OBJECT) {
+                        objects++;
+                        continue;
+                    }
                     String value = jp.getText();
                     if (fields.containsKey(fieldName))
                     {
