@@ -1,7 +1,6 @@
 package co.gridport.kafka.hadoop;
-import java.nio.ByteBuffer;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,35 +18,19 @@ import kafka.javaapi.TopicMetadataRequest;
 import kafka.javaapi.consumer.SimpleConsumer;
 import kafka.message.MessageAndOffset;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
-public class KafkaInputFormatFetcher {
 
-
-    public static void main(String[] args) throws Exception {
-
-        KafkaInputFormatFetcher fetcher = new KafkaInputFormatFetcher(Arrays.asList("localhost"));
-
-        while(true) {
-            MessageAndOffset messageAndOffset = fetcher.nextMessageAndOffset();
-            if (messageAndOffset == null) {
-                //backoff sleep
-                try {Thread.sleep(1000);} catch (InterruptedException ie) {}
-            } else {
-                ByteBuffer payload = messageAndOffset.message().payload();
-                byte[] bytes = new byte[payload.limit()];
-                payload.get(bytes);
-                System.out.println(String.valueOf(messageAndOffset.offset()) + ": " + new String(bytes, "UTF-8"));
-            }
-        }
-    }
+public class KafkaInputFetcher {
+    static Logger log = LoggerFactory.getLogger(KafkaInputRecordReader.class);
 
     private List<String> seeds;
 
-    private String clientId = "testClient";
-    private String topic = "test";
-    private Integer partition = 0;
-    private Integer fetchSize = 65535 * 16;
+    private String clientId;
+    private String topic;
+    private Integer partition;
 
     private String leader;
     private List<String> replicaBrokers = new ArrayList<String>();
@@ -55,12 +38,15 @@ public class KafkaInputFormatFetcher {
     private Long offset;
     private ConcurrentLinkedQueue<MessageAndOffset> messageQueue;
 
-    public KafkaInputFormatFetcher(List<String> seeds) {
+    public KafkaInputFetcher(String clientId, String topic, int partition, List<String> seeds, int timeout, int bufferSize) {
+        this.clientId = clientId;
+        this.topic = topic;
+        this.partition = partition;
         this.seeds = seeds;
         messageQueue =  new ConcurrentLinkedQueue<MessageAndOffset>();
     }
 
-    private MessageAndOffset nextMessageAndOffset() throws Exception {
+    public MessageAndOffset nextMessageAndOffset(Integer fetchSize) throws IOException {
 
         if (leader == null) {
             leader = findLeader(seeds);
@@ -70,6 +56,7 @@ public class KafkaInputFormatFetcher {
             offset = getOffset(kafka.api.OffsetRequest.LatestTime());
         }
         if (messageQueue.size() < 100) {
+            log.info("{} fetching offset {} ", topic+":" + partition, offset);
             FetchRequestBuilder requestBuilder = new FetchRequestBuilder();
             FetchRequest req = requestBuilder
                 .clientId(clientId)
@@ -79,8 +66,7 @@ public class KafkaInputFormatFetcher {
             if (response.hasError()) {
                 short code = response.errorCode(topic, partition);
                 System.out.println("Error fetching data from the Broker:" + leader + " Reason: " + code);
-                consumer.close();
-                consumer = null;
+                close();
                 leader = findNewLeader(leader);
             }
             for (MessageAndOffset messageAndOffset : response.messageSet(topic, partition)) {
@@ -102,7 +88,7 @@ public class KafkaInputFormatFetcher {
 
     }
 
-    private Long getOffset(Long time) {
+    public Long getOffset(Long time) {
         TopicAndPartition topicAndPartition = new TopicAndPartition(topic, partition);
         Map<TopicAndPartition, PartitionOffsetRequestInfo> requestInfo = new HashMap<TopicAndPartition, PartitionOffsetRequestInfo>();
         requestInfo.put(topicAndPartition, new PartitionOffsetRequestInfo(time, 1));
@@ -116,7 +102,7 @@ public class KafkaInputFormatFetcher {
         return response1.offsets(topic, partition)[0];
     }
 
-    private String findNewLeader(String oldLeader) throws Exception {
+    private String findNewLeader(String oldLeader) throws IOException {
         for (int i = 0; i < 3; i++) {
             boolean goToSleep = false;
             String newLeader= findLeader(replicaBrokers);
@@ -132,7 +118,7 @@ public class KafkaInputFormatFetcher {
             }
         }
         System.out.println("Unable to find new leader after Broker failure. Exiting");
-        throw new Exception("Unable to find new leader after Broker failure. Exiting");
+        throw new IOException("Unable to find new leader after Broker failure. Exiting");
     }
 
     private String findLeader(List<String> seeds) {
@@ -171,5 +157,12 @@ public class KafkaInputFormatFetcher {
         } else {
             return null;
         }
+    }
+
+    public void close() {
+       if (consumer != null) {
+           consumer.close();
+           consumer = null;
+       }
     }
 }

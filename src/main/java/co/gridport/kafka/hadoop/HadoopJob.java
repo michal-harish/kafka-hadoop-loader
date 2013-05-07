@@ -41,7 +41,6 @@ public class HadoopJob extends Configured implements Tool {
 
     static {
         Configuration.addDefaultResource("core-site.xml");
-        //Configuration.addDefaultResource("mapred-site.xml");
     }
 
     public int run(String[] args) throws Exception {
@@ -63,12 +62,6 @@ public class HadoopJob extends Configured implements Tool {
             conf.set("kafka.topics", cmd.getOptionValue("topics"));
             Logger.getRootLogger().info("Using topics: " + conf.get("kafka.topics"));
         }
-        else if (cmd.hasOption("filter"))
-        {
-            conf.set("kafka.topic.filter", cmd.getOptionValue("filter"));
-            Logger.getRootLogger().info("Using topic filter: " + conf.get("kafka.topic.filter"));
-            throw new Exception("Topic filter not implemented");
-        }
         else
         {
             printHelpAndExit(options);
@@ -77,7 +70,7 @@ public class HadoopJob extends Configured implements Tool {
         conf.set("kafka.groupid", cmd.getOptionValue("consumer-group", "dev-hadoop-loader"));
         Logger.getRootLogger().info("Registering under consumer group: " + conf.get("kafka.groupid")); 
 
-        conf.set("kafka.zk.connect", cmd.getOptionValue("zk-connect", "hq-mharis-d02:2181"));
+        conf.set("kafka.zk.connect", cmd.getOptionValue("zk-connect", "localhost:9092"));
 
         Logger.getRootLogger().info("Using ZooKepper connection: " + conf.get("kafka.zk.connect"));
 
@@ -159,13 +152,13 @@ public class HadoopJob extends Configured implements Tool {
         options.addOption(OptionBuilder.withArgName("zk")
                 .withLongOpt("zk-connect")
                 .hasArg()
-                .withDescription("ZooKeeper connection String")
+                .withDescription("Initial zk connection string for discovery")
                 .create("z"));
 
         options.addOption(OptionBuilder.withArgName("offset")
                 .withLongOpt("offset-reset")
                 .hasArg()
-                .withDescription("Reset offset to start or end of the stream e.g. 'earliest' or 'latest'")
+                .withDescription("Reset offset to start or end of the stream e.g. 'smallest' or 'largest'")
                 .create("o"));
 
         options.addOption(OptionBuilder.withArgName("compression")
@@ -184,12 +177,6 @@ public class HadoopJob extends Configured implements Tool {
                 .withLongOpt("help")
                 .withDescription("Show this help")
                 .create("h"));  
-
-        options.addOption(OptionBuilder.withArgName("topic_filter")
-                .withLongOpt("filter")
-                .hasArg()
-                .withDescription("Topic filter")
-                .create("f"));
 
         options.addOption(OptionBuilder.withArgName("json|protobuf|avro")
                 .withLongOpt("input-format")

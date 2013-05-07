@@ -42,28 +42,32 @@ public class ZkUtils implements Closeable {
 
     private ZkClient client ;
     Map<String, String> brokers ;
+    List<String> seeds = new ArrayList<String>();
 
     public ZkUtils(String zkConnectString, int sessionTimeout, int connectTimeout) {
         client = new ZkClient(zkConnectString, sessionTimeout, connectTimeout, new StringSerializer() );
         log.info("Connected zk");
     }
-    
+
     public ZkUtils(String zkConnectString)
     {
         this(zkConnectString, 10000, 10000);
     }
 
-    public String getBrokerName(String id) {
-        if (brokers == null) {
+    public List<String> getSeedList() {
+
+        if (seeds == null) {
+            List<String> seeds = new ArrayList<String>();
             brokers = new HashMap<String, String>();
             List<String> brokerIds = getChildrenParentMayNotExist(BROKER_IDS_PATH);
             for(String bid: brokerIds) {
                 String data = client.readData(BROKER_IDS_PATH + "/" + bid);
                 log.info("Broker " + bid + " " + data);
-                brokers.put(bid, data.split(":", 2)[1]);
+                brokers.put(bid, data.split(":", 2)[0]);
+                seeds.add(brokers.get(bid));
             }
         }
-        return brokers.get(id);
+        return seeds;
     }
 
     public List<String> getBrokerPartitions(String topic) {
@@ -78,11 +82,11 @@ public class ZkUtils implements Closeable {
         return partitions;
     }
 
-    private String getOffsetsPath(String group, String topic, String partition) {
+    private String getOffsetsPath(String group, String topic, Integer partition) {
         return CONSUMERS_PATH + "/" + group + "/offsets/" + topic + "/" + partition;
     }
 
-    public long getLastConsumedOffset(String group, String topic, String partition) {
+    public long getLastConsumedOffset(String group, String topic, Integer partition) {
         String znode = getOffsetsPath(group ,topic ,partition);
         String offset = client.readData(znode, true);
         if (offset == null) {
@@ -94,7 +98,7 @@ public class ZkUtils implements Closeable {
     public void commitLastConsumedOffset(
         String group, 
         String topic, 
-        String partition, 
+        Integer partition, 
         long offset
     )
     {
@@ -127,6 +131,7 @@ public class ZkUtils implements Closeable {
     static class StringSerializer implements ZkSerializer {
 
         public StringSerializer() {}
+
         public Object deserialize(byte[] data) throws ZkMarshallingError {
             if (data == null) return null;
             return new String(data);
@@ -136,4 +141,5 @@ public class ZkUtils implements Closeable {
             return data.toString().getBytes();
         }
     }
+
 }

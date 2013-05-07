@@ -29,7 +29,6 @@ import org.apache.hadoop.mapreduce.InputSplit;
 
 public class KafkaInputSplit extends InputSplit implements Writable {
 
-    private String brokerId;
     private String broker;
     private int partition;
     private String topic;
@@ -37,8 +36,7 @@ public class KafkaInputSplit extends InputSplit implements Writable {
 
     public KafkaInputSplit() {}
 
-    public KafkaInputSplit(String brokerId, String broker, String topic, int partition, long lastCommit) {
-        this.brokerId = brokerId;
+    public KafkaInputSplit(String broker, String topic, int partition, long lastCommit) {
         this.broker = broker;
         this.partition = partition;
         this.topic = topic;
@@ -46,7 +44,6 @@ public class KafkaInputSplit extends InputSplit implements Writable {
     }
 
     public void readFields(DataInput in) throws IOException {
-        brokerId = Text.readString(in);
         broker = Text.readString(in);
         topic = Text.readString(in);
         partition = in.readInt();
@@ -54,7 +51,6 @@ public class KafkaInputSplit extends InputSplit implements Writable {
     }
 
     public void write(DataOutput out) throws IOException {
-        Text.writeString(out, brokerId);
         Text.writeString(out, broker);
         Text.writeString(out, topic);
         out.writeInt(partition);
@@ -69,10 +65,6 @@ public class KafkaInputSplit extends InputSplit implements Writable {
     @Override
     public String[] getLocations() throws IOException, InterruptedException {
         return new String[] {broker};
-    }
-
-    public String getBrokerId() {
-        return brokerId;
     }
 
     /**
