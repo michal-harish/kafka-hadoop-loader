@@ -1,3 +1,4 @@
+package co.gridport.kafka.hadoop;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,39 +21,46 @@ import kafka.message.MessageAndOffset;
 
 
 
-public class TestKafka8SimpleFetcher {
+public class KafkaInputFormatFetcher {
 
-    private static List<String> seeds = Arrays.asList("localhost");
-
-    private static String clientId = "testClient";
-    private static String topic = "test";
-    private static Integer partition = 0;
-    private static Integer fetchSize = 65535 * 16;
-
-    private static String leader;
-    private static List<String> replicaBrokers = new ArrayList<String>();
-    private static SimpleConsumer consumer = null;
-    private static Long offset;
-    private static ConcurrentLinkedQueue<MessageAndOffset> messageQueue = new ConcurrentLinkedQueue<MessageAndOffset>();
 
     public static void main(String[] args) throws Exception {
 
-        while(true) {
-            MessageAndOffset messageAndOffset = nextMessageAndOffset();
+        KafkaInputFormatFetcher fetcher = new KafkaInputFormatFetcher(Arrays.asList("localhost"));
 
+        while(true) {
+            MessageAndOffset messageAndOffset = fetcher.nextMessageAndOffset();
             if (messageAndOffset == null) {
+                //backoff sleep
                 try {Thread.sleep(1000);} catch (InterruptedException ie) {}
             } else {
                 ByteBuffer payload = messageAndOffset.message().payload();
                 byte[] bytes = new byte[payload.limit()];
                 payload.get(bytes);
                 System.out.println(String.valueOf(messageAndOffset.offset()) + ": " + new String(bytes, "UTF-8"));
-                offset = messageAndOffset.nextOffset();
             }
         }
     }
 
-    static private MessageAndOffset  nextMessageAndOffset() throws Exception {
+    private List<String> seeds;
+
+    private String clientId = "testClient";
+    private String topic = "test";
+    private Integer partition = 0;
+    private Integer fetchSize = 65535 * 16;
+
+    private String leader;
+    private List<String> replicaBrokers = new ArrayList<String>();
+    private SimpleConsumer consumer = null;
+    private Long offset;
+    private ConcurrentLinkedQueue<MessageAndOffset> messageQueue;
+
+    public KafkaInputFormatFetcher(List<String> seeds) {
+        this.seeds = seeds;
+        messageQueue =  new ConcurrentLinkedQueue<MessageAndOffset>();
+    }
+
+    private MessageAndOffset nextMessageAndOffset() throws Exception {
 
         if (leader == null) {
             leader = findLeader(seeds);
@@ -85,14 +93,16 @@ public class TestKafka8SimpleFetcher {
             }
         }
         if (messageQueue.size() > 0) {
-            return messageQueue.poll();
+            MessageAndOffset messageAndOffset = messageQueue.poll();
+            offset = messageAndOffset.nextOffset();
+            return messageAndOffset;
         } else {
             return null;
         }
 
     }
 
-    private static Long getOffset(Long time) {
+    private Long getOffset(Long time) {
         TopicAndPartition topicAndPartition = new TopicAndPartition(topic, partition);
         Map<TopicAndPartition, PartitionOffsetRequestInfo> requestInfo = new HashMap<TopicAndPartition, PartitionOffsetRequestInfo>();
         requestInfo.put(topicAndPartition, new PartitionOffsetRequestInfo(time, 1));
@@ -106,7 +116,7 @@ public class TestKafka8SimpleFetcher {
         return response1.offsets(topic, partition)[0];
     }
 
-    static private String findNewLeader(String oldLeader) throws Exception {
+    private String findNewLeader(String oldLeader) throws Exception {
         for (int i = 0; i < 3; i++) {
             boolean goToSleep = false;
             String newLeader= findLeader(replicaBrokers);
@@ -125,7 +135,7 @@ public class TestKafka8SimpleFetcher {
         throw new Exception("Unable to find new leader after Broker failure. Exiting");
     }
 
-    static private String findLeader(List<String> seeds) {
+    private String findLeader(List<String> seeds) {
         PartitionMetadata returnMetaData = null;
         for (String seed : seeds) {
             SimpleConsumer consumer = null;
