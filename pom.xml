@@ -9,14 +9,15 @@
 
     <properties>
         <java.version>1.6</java.version>
+        <scala.version>2.9.2</scala.version>
         <hadoop.version>2.2.0</hadoop.version>
-        <kafka.version>0.7.3-1</kafka.version>
+        <kafka.version>0.8.2.2</kafka.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka-core</artifactId>
+            <artifactId>kafka_${scala.version}</artifactId>
             <version>${kafka.version}</version>
         </dependency>
         <dependency>

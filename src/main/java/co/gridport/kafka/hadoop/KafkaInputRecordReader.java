@@ -20,10 +20,18 @@
 package co.gridport.kafka.hadoop;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
 import kafka.api.FetchRequest;
+import kafka.api.FetchRequestBuilder;
+import kafka.api.PartitionOffsetRequestInfo;
 import kafka.common.ErrorMapping;
+import kafka.common.TopicAndPartition;
+import kafka.javaapi.FetchResponse;
+import kafka.javaapi.OffsetResponse;
+import kafka.javaapi.PartitionMetadata;
 import kafka.javaapi.consumer.SimpleConsumer;
 import kafka.javaapi.message.ByteBufferMessageSet;
 import kafka.message.Message;
@@ -45,7 +53,6 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
     private Configuration conf;
 
     private KafkaInputSplit split;
-    //private TaskAttemptContext context;
 
     private SimpleConsumer consumer ;
     private int fetchSize;
@@ -63,6 +70,8 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
     private BytesWritable value;
 
     private long numProcessedMessages = 0L;
+    
+    private String clientId = "hadoop-loader";
 
     @Override
     public void initialize(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException
@@ -80,7 +89,12 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
 
         int timeout = conf.getInt("kafka.socket.timeout.ms", 30000);
         int bufferSize = conf.getInt("kafka.socket.buffersize", 64*1024);
-        consumer =  new SimpleConsumer(this.split.getBrokerHost(), this.split.getBrokerPort(), timeout, bufferSize);
+        consumer =  new SimpleConsumer(
+            this.split.getBrokerHost(), this.split.getBrokerPort(),
+            timeout, 
+            bufferSize, 
+            clientId
+        );
 
         fetchSize = conf.getInt("kafka.fetch.size", 1024 * 1024);
         reset = conf.get("kafka.watermark.reset", "watermark");
@@ -114,18 +128,24 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
         }
 
         if (messages == null) {
-            FetchRequest request = new FetchRequest(topic, partition, watermark, fetchSize);
+            FetchRequest req = new FetchRequestBuilder()
+                .clientId(clientId)
+                .addFetch(topic, partition, watermark, fetchSize)
+                .build();
             log.info("{} fetching offset {} ", topic+":" + split.getBrokerId() +":" + partition, watermark);
-            messages = consumer.fetch(request);
-            if (messages.getErrorCode() == ErrorMapping.OffsetOutOfRangeCode())
-            {
-                log.info("Out of bounds = " + watermark);
-                return false;
-            }
-            if (messages.getErrorCode() != 0)
-            {
-                log.warn("Messages fetch error code: " + messages.getErrorCode());
-                return false;
+            FetchResponse response = consumer.fetch(req);
+            if (response.hasError()) {
+                short code = response.errorCode(topic, partition);
+                System.out.println("Error fetching data from the Broker:" + leadBroker + " Reason: " + code);
+                if (code == ErrorMapping.OffsetOutOfRangeCode())  {
+                    // We asked for an invalid offset. For simple case ask for the last element to reset
+                    watermark = getLastOffset(consumer,topic, partition, kafka.api.OffsetRequest.LatestTime(), clientId);
+                    continue;
+                }
+                consumer.close();
+                consumer = null;
+                leadBroker = findNewLeader(leadBroker, a_topic, a_partition, a_port);
+                continue;
             } else {
                 iterator = messages.iterator();
                 watermark += messages.validBytes();
@@ -198,14 +218,38 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
 
     private long getEarliestOffset() {
         if (earliestOffset <= 0) {
-            earliestOffset = consumer.getOffsetsBefore(topic, partition, -2L, 1)[0];
+            TopicAndPartition topicAndPartition = new TopicAndPartition(topic, partition);
+            Map<TopicAndPartition, PartitionOffsetRequestInfo> requestInfo = new HashMap<TopicAndPartition, PartitionOffsetRequestInfo>();
+            requestInfo.put(topicAndPartition, new PartitionOffsetRequestInfo(kafka.api.OffsetRequest.EarliestTime(), 1));
+            kafka.javaapi.OffsetRequest request = new kafka.javaapi.OffsetRequest(
+                    requestInfo, kafka.api.OffsetRequest.CurrentVersion(), clientId);
+            OffsetResponse response = consumer.getOffsetsBefore(request);
+
+            if (response.hasError()) {
+                System.out.println("Error fetching data Offset Data the Broker. Reason: " + response.errorCode(topic, partition) );
+                return 0;
+            }
+            long[] offsets = response.offsets(topic, partition);
+            earliestOffset = offsets[0];
         }
         return earliestOffset;
     }
 
-    private long getLatestOffset() {
+    private long getLastOffset() {
         if (latestOffset <= 0) {
-            latestOffset = consumer.getOffsetsBefore(topic, partition, -1L, 1)[0];
+            TopicAndPartition topicAndPartition = new TopicAndPartition(topic, partition);
+            Map<TopicAndPartition, PartitionOffsetRequestInfo> requestInfo = new HashMap<TopicAndPartition, PartitionOffsetRequestInfo>();
+            requestInfo.put(topicAndPartition, new PartitionOffsetRequestInfo(kafka.api.OffsetRequest.LatestTime(), 1));
+            kafka.javaapi.OffsetRequest request = new kafka.javaapi.OffsetRequest(
+                    requestInfo, kafka.api.OffsetRequest.CurrentVersion(), clientId);
+            OffsetResponse response = consumer.getOffsetsBefore(request);
+
+            if (response.hasError()) {
+                System.out.println("Error fetching data Offset Data the Broker. Reason: " + response.errorCode(topic, partition) );
+                return 0;
+            }
+            long[] offsets = response.offsets(topic, partition);
+            latestOffset = offsets[0];
         }
         return latestOffset;
     }
@@ -216,6 +260,33 @@ public class KafkaInputRecordReader extends RecordReader<LongWritable, BytesWrit
         }
         log.info("{} resetting offset to {}", topic+":" + split.getBrokerId() +":" + partition, offset);
         watermark = earliestOffset = offset;
+    }
+
+    private String findNewLeader(String a_oldLeader, String a_topic, int a_partition, int a_port) throws Exception {
+        for (int i = 0; i < 3; i++) {
+            boolean goToSleep = false;
+            PartitionMetadata metadata = findLeader(m_replicaBrokers, a_port, a_topic, a_partition);
+            if (metadata == null) {
+                goToSleep = true;
+            } else if (metadata.leader() == null) {
+                goToSleep = true;
+            } else if (a_oldLeader.equalsIgnoreCase(metadata.leader().host()) && i == 0) {
+                // first time through if the leader hasn't changed give ZooKeeper a second to recover
+                // second time, assume the broker did recover before failover, or it was a non-Broker issue
+                //
+                goToSleep = true;
+            } else {
+                return metadata.leader().host();
+            }
+            if (goToSleep) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ie) {
+                }
+            }
+        }
+        System.out.println("Unable to find new leader after Broker failure. Exiting");
+        throw new Exception("Unable to find new leader after Broker failure. Exiting");
     }
 
 }

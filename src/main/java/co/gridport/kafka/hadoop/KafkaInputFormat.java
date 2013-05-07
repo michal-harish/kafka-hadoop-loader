@@ -37,6 +37,8 @@ public class KafkaInputFormat extends InputFormat<LongWritable, BytesWritable> {
 
     @Override
     public List<InputSplit> getSplits(JobContext context) throws IOException, InterruptedException {
+
+        //TODO utilise TopicMetadataRequest of simple consumer
         Configuration conf = context.getConfiguration();
         ZkUtils zk = new ZkUtils(
             conf.get("kafka.zk.connect"),
