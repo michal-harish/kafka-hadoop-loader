@@ -1,0 +1,6 @@
+This product is based on ideas from stealth.ly metrics-kafka, riemann and influxDb.
+
+Packaged version of this software contains:
+
+- Apache Kafka (Apache 2.0 License)
+- Apache Hadoop (Apache 2.0 License)
