@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 Michal Harish, michal.harish@gmail.com
+ * Copyright 2014 Michal Harish, michal.harish@gmail.com
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -17,26 +17,32 @@
  * limitations under the License.
  */
 
-package co.gridport.kafka.hadoop;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+package io.amient.kafka.hadoop.format;
 
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.InputSplit;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+
 public class KafkaInputSplit extends InputSplit implements Writable {
 
+    public final static String KAFKA_INPUT_SPLIT_CONF_KEY = "KafkaInputStream";
+
+    private String brokerId;
     private String broker;
     private int partition;
     private String topic;
     private long lastCommit;
 
-    public KafkaInputSplit() {}
+    // Needed for reflection instantiation (Required because we are implementing the Writable interface)
+    public KafkaInputSplit() {
+    }
 
-    public KafkaInputSplit(String broker, String topic, int partition, long lastCommit) {
+    public KafkaInputSplit(int brokerId, String broker, String topic, int partition, long lastCommit) {
+        this.brokerId = String.valueOf(brokerId);
         this.broker = broker;
         this.partition = partition;
         this.topic = topic;
@@ -44,6 +50,7 @@ public class KafkaInputSplit extends InputSplit implements Writable {
     }
 
     public void readFields(DataInput in) throws IOException {
+        brokerId = Text.readString(in);
         broker = Text.readString(in);
         topic = Text.readString(in);
         partition = in.readInt();
@@ -51,6 +58,7 @@ public class KafkaInputSplit extends InputSplit implements Writable {
     }
 
     public void write(DataOutput out) throws IOException {
+        Text.writeString(out, brokerId);
         Text.writeString(out, broker);
         Text.writeString(out, topic);
         out.writeInt(partition);
@@ -64,7 +72,11 @@ public class KafkaInputSplit extends InputSplit implements Writable {
 
     @Override
     public String[] getLocations() throws IOException, InterruptedException {
-        return new String[] {broker};
+        return new String[] { broker };
+    }
+
+    public String getBrokerId() {
+        return brokerId;
     }
 
     /**
@@ -74,18 +86,16 @@ public class KafkaInputSplit extends InputSplit implements Writable {
         return broker;
     }
 
-    public String getBrokerHost()
-    {
+    public String getBrokerHost() {
         String[] hostPort = broker.split(":");
         return hostPort[0];
     }
 
-    public int getBrokerPort()
-    {
+    public int getBrokerPort() {
         String[] hostPort = broker.split(":");
         return Integer.valueOf(hostPort[1]);
     }
-    
+
     public int getPartition() {
         return partition;
     }
@@ -100,6 +110,6 @@ public class KafkaInputSplit extends InputSplit implements Writable {
 
     @Override
     public String toString() {
-        return broker + "-" + topic + "-" + partition + "-" + lastCommit ;
+        return broker + "-" + topic + "-" + partition + "-" + lastCommit;
     }
 }
