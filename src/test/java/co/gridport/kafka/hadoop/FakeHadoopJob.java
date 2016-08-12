@@ -49,6 +49,12 @@ public class FakeHadoopJob {
     
     static protected Object lock = new Object();
 
+    /**
+     *
+     * @param args args[0] zkConnect args[1] coma-separated topic list
+     * @throws InterruptedException
+     * @throws IOException
+     */
     public static void main(String[] args) throws InterruptedException, IOException
     {
         //Mock the hadoop job with executor of MockMapTask pool
@@ -56,10 +62,10 @@ public class FakeHadoopJob {
 
         JobConf conf = new JobConf(new Configuration());
         //TODO extract options from HadoopJob and reuse here
-        conf.set("kafka.zk.connect", "localhost:2181");
+        conf.set("kafka.zk.connect", args[0]);
         conf.set("kafka.zk.sessiontimeout.ms", "10000");
         conf.set("kafka.zk.connectiontimeout.ms", "10000");
-        conf.set("kafka.topics", "prod_useractivity,prod_profileupdates,prod_conversions,prod_pageviews,prod_adclicks,prod_adviews");
+        conf.set("kafka.topics", args[1]);
         conf.set("kafka.groupid", "hadoop-loader-test");
         //conf.set("kafka.watermark.reset", "earliest");
         conf.set("input.format", "json");
