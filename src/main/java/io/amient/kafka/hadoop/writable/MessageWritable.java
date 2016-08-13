@@ -26,11 +26,9 @@ import org.apache.hadoop.io.WritableUtils;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.nio.charset.Charset;
 
 public class MessageWritable extends MapWritable implements Writable {
 
-    private static final Charset UTF8 = Charset.forName("UTF8");
     private byte[] data;
 
     public MessageWritable() {

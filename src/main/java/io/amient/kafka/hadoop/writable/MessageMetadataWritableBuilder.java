@@ -19,7 +19,7 @@
 
 package io.amient.kafka.hadoop.writable;
 
-public class MessageSourceWritableBuilder {
+public class MessageMetadataWritableBuilder {
 
     private String brokerHost;
     private String topic;
@@ -27,31 +27,31 @@ public class MessageSourceWritableBuilder {
     private Integer partition;
     private Long offset;
 
-    public MessageSourceWritableBuilder() {
+    public MessageMetadataWritableBuilder() {
         resetBuilder();
     }
 
-    public MessageSourceWritableBuilder setTopic(String topic) {
+    public MessageMetadataWritableBuilder setTopic(String topic) {
         this.topic = topic;
         return this;
     }
 
-    public MessageSourceWritableBuilder setBrokerHost(String brokerHost) {
+    public MessageMetadataWritableBuilder setBrokerHost(String brokerHost) {
         this.brokerHost = brokerHost;
         return this;
     }
 
-    public MessageSourceWritableBuilder setBrokerId(int brokerId) {
+    public MessageMetadataWritableBuilder setBrokerId(int brokerId) {
         this.brokerId = Integer.valueOf(brokerId);
         return this;
     }
 
-    public MessageSourceWritableBuilder setPartition(int partition) {
+    public MessageMetadataWritableBuilder setPartition(int partition) {
         this.partition = Integer.valueOf(partition);
         return this;
     }
 
-    public MessageSourceWritableBuilder setOffset(long offset) {
+    public MessageMetadataWritableBuilder setOffset(long offset) {
         this.offset = Long.valueOf(offset);
         return this;
     }
@@ -64,7 +64,7 @@ public class MessageSourceWritableBuilder {
         offset = null;
     }
 
-    public MessageSourceWritable createMessageSourceWritable() {
-        return new MessageSourceWritable(topic, brokerId, brokerHost, partition, offset);
+    public MessageMetadataWritable createMessageSourceWritable() {
+        return new MessageMetadataWritable(topic, brokerId, brokerHost, partition, offset);
     }
 }

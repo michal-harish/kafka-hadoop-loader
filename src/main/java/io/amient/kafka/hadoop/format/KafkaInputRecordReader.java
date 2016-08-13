@@ -20,8 +20,8 @@
 package io.amient.kafka.hadoop.format;
 
 import io.amient.kafka.hadoop.KafkaZkUtils;
-import io.amient.kafka.hadoop.writable.MessageSourceWritable;
-import io.amient.kafka.hadoop.writable.MessageSourceWritableBuilder;
+import io.amient.kafka.hadoop.writable.MessageMetadataWritable;
+import io.amient.kafka.hadoop.writable.MessageMetadataWritableBuilder;
 import kafka.api.FetchRequest;
 import kafka.api.FetchRequestBuilder;
 import kafka.api.PartitionFetchInfo;
@@ -48,7 +48,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-public class KafkaInputRecordReader extends RecordReader<MessageSourceWritable, BytesWritable> {
+public class KafkaInputRecordReader extends RecordReader<MessageMetadataWritable, BytesWritable> {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaInputRecordReader.class);
     private static final long LATEST_TIME = -1L;
@@ -69,11 +69,11 @@ public class KafkaInputRecordReader extends RecordReader<MessageSourceWritable, 
 
     private ByteBufferMessageSet messages;
     private Iterator<MessageAndOffset> iterator;
-    private MessageSourceWritable key;
+    private MessageMetadataWritable key;
     private BytesWritable value;
 
     private long numProcessedMessages = 0L;
-    private final MessageSourceWritableBuilder keyBuilder = new MessageSourceWritableBuilder();
+    private final MessageMetadataWritableBuilder keyBuilder = new MessageMetadataWritableBuilder();
 
     @Override
     public void initialize(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException {
@@ -199,7 +199,7 @@ public class KafkaInputRecordReader extends RecordReader<MessageSourceWritable, 
     }
 
     @Override
-    public MessageSourceWritable getCurrentKey() throws IOException, InterruptedException {
+    public MessageMetadataWritable getCurrentKey() throws IOException, InterruptedException {
         return key;
     }
 

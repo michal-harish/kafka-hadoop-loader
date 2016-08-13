@@ -19,33 +19,67 @@
 
 package io.amient.kafka.hadoop.format;
 
-import io.amient.kafka.hadoop.writable.MessageSourceWritable;
+import io.amient.kafka.hadoop.KafkaZkUtils;
+import io.amient.kafka.hadoop.writable.MessageMetadataWritable;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.BytesWritable;
-import org.apache.hadoop.io.DefaultStringifier;
 import org.apache.hadoop.mapreduce.*;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-public class KafkaInputFormat extends InputFormat<MessageSourceWritable, BytesWritable> {
+public class KafkaInputFormat extends InputFormat<MessageMetadataWritable, BytesWritable> {
 
     @Override
     public List<InputSplit> getSplits(JobContext context) throws IOException, InterruptedException {
-        InputSplit[] inputSplit = DefaultStringifier.loadArray(
-            context.getConfiguration(),
-            KafkaInputSplit.KAFKA_INPUT_SPLIT_CONF_KEY,
-            KafkaInputSplit.class
-            );
+        Configuration conf = context.getConfiguration();
+        try (KafkaZkUtils zk = new KafkaZkUtils(
+                conf.get("kafka.zookeeper.connect"),
+                conf.getInt("kafka.zookeeper.session.timeout.ms", 10000),
+                conf.getInt("kafka.zookeeper.connection.timeout.ms", 10000)
+        )) {
+            return createInputSplitPerPartitionLeader(zk, conf);
+        }
 
-        return Arrays.asList(inputSplit);
     }
 
     @Override
-    public RecordReader<MessageSourceWritable, BytesWritable> createRecordReader(
+    public RecordReader<MessageMetadataWritable, BytesWritable> createRecordReader(
         InputSplit inputSplit,
         TaskAttemptContext context
         ) throws IOException, InterruptedException {
         return new KafkaInputRecordReader();
     }
+
+    private List<InputSplit> createInputSplitPerPartitionLeader(
+            KafkaZkUtils zkUtils,
+            Configuration configuration
+    ) throws IOException {
+        String[] inputTopics = configuration.get("kafka.topics").split(",");
+        String consumerGroup = configuration.get("kafka.group.id");
+
+        List<InputSplit> splits = new ArrayList<>();
+        for (String topic : inputTopics) {
+            Map<Integer, Integer> partitionLeaders = zkUtils.getPartitionLeaders(topic);
+            for (int partition : partitionLeaders.keySet()) {
+                int brokerId = partitionLeaders.get(partition);
+                long lastConsumedOffset = zkUtils.getLastConsumedOffset(consumerGroup, topic, partition);
+
+                KafkaInputSplit split = new KafkaInputSplit(
+                        brokerId,
+                        zkUtils.getBrokerName(brokerId),
+                        topic,
+                        partition,
+                        lastConsumedOffset
+                );
+
+                splits.add(split);
+            }
+        }
+
+        return splits;
+    }
+
 }

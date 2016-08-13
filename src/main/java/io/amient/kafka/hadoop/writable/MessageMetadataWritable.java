@@ -27,7 +27,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
-public class MessageSourceWritable implements Writable {
+public class MessageMetadataWritable implements Writable {
 
     private String topic;
     private String brokerHost;
@@ -38,10 +38,10 @@ public class MessageSourceWritable implements Writable {
     /**
      * @deprecated Constructor used by Hadoop to init the class through reflection. Do not remove...
      */
-    public MessageSourceWritable() {
+    public MessageMetadataWritable() {
     }
 
-    public MessageSourceWritable(String topic, int brokerId, String brokerHost, int partition, long offset) {
+    public MessageMetadataWritable(String topic, int brokerId, String brokerHost, int partition, long offset) {
         this.topic = topic;
         this.brokerId = brokerId;
         this.partition = partition;
@@ -112,11 +112,11 @@ public class MessageSourceWritable implements Writable {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof MessageSourceWritable)) {
+        if (!(o instanceof MessageMetadataWritable)) {
             return false;
         }
 
-        MessageSourceWritable that = (MessageSourceWritable) o;
+        MessageMetadataWritable that = (MessageMetadataWritable) o;
 
         if (brokerId != that.brokerId) {
             return false;

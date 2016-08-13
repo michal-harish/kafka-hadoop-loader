@@ -29,8 +29,6 @@ import java.io.IOException;
 
 public class KafkaInputSplit extends InputSplit implements Writable {
 
-    public final static String KAFKA_INPUT_SPLIT_CONF_KEY = "KafkaInputStream";
-
     private String brokerId;
     private String broker;
     private int partition;
