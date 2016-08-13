@@ -111,37 +111,25 @@ public class HadoopJob extends Configured implements Tool {
         // determine all partitions + leaders ... save to config/job context
         // in the KIF -> load data from job context.config and return splits
 
-        KafkaZkUtils zk = new KafkaZkUtils(
-                conf.get("kafka.zookeeper.connect"),
-                conf.getInt("kafka.zookeeper.session.timeout.ms", 10000),
-                conf.getInt("kafka.zookeeper.connection.timeout.ms", 10000)
-        );
 
         boolean success = false;
 
-        try {
-            Job job = Job.getInstance(jobConf, "kafka.hadoop.loader");
+        Job job = Job.getInstance(jobConf, "kafka.hadoop.loader");
 
-            List<KafkaInputSplit> splits = KafkaInputSplitsBuilder.createInputSplitPerPartitionLeader(zk, conf);
-            DefaultStringifier.storeArray(job.getConfiguration(), splits.toArray(), KafkaInputSplit.KAFKA_INPUT_SPLIT_CONF_KEY);
+        job.setInputFormatClass(KafkaInputFormat.class);
+        job.setMapperClass(HadoopJobMapper.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(Text.class);
+        job.setOutputFormatClass(KafkaOutputFormat.class);
+        job.setNumReduceTasks(0);
 
-            job.setInputFormatClass(KafkaInputFormat.class);
-            job.setMapperClass(HadoopJobMapper.class);
-            job.setOutputKeyClass(Text.class);
-            job.setOutputValueClass(Text.class);
-            job.setOutputFormatClass(KafkaOutputFormat.class);
-            job.setNumReduceTasks(0);
+        KafkaOutputFormat.setOutputPath(job, new Path(hdfsPath));
+        KafkaOutputFormat.setCompressOutput(job, cmd.getOptionValue("compress-output", "on").equals("on"));
 
-            KafkaOutputFormat.setOutputPath(job, new Path(hdfsPath));
-            KafkaOutputFormat.setCompressOutput(job, cmd.getOptionValue("compress-output", "on").equals("on"));
+        LOG.info("Output hdfs location: {}", hdfsPath);
+        LOG.info("Output hdfs compression: {}", KafkaOutputFormat.getCompressOutput(job));
 
-            LOG.info("Output hdfs location: {}", hdfsPath);
-            LOG.info("Output hdfs compression: {}", KafkaOutputFormat.getCompressOutput(job));
-
-            success = job.waitForCompletion(true);
-        } finally {
-            zk.close();
-        }
+        success = job.waitForCompletion(true);
 
         return success ? 0 : -1;
     }

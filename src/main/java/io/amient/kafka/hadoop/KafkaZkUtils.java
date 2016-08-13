@@ -46,7 +46,6 @@ public class KafkaZkUtils implements Closeable {
     public static final String BROKER_IDS_PATH = "/brokers/ids";
     public static final String BROKER_TOPICS_PATH = "/brokers/topics";
     public static final String PARTITIONS = "partitions";
-    public static final String STATE = "state";
 
     private final ObjectMapper jsonMapper;
 
@@ -56,10 +55,6 @@ public class KafkaZkUtils implements Closeable {
         client = new ZkClient(zkConnectString, sessionTimeout, connectTimeout, new StringSerializer());
         jsonMapper = new ObjectMapper(new JsonFactory());
         LOG.info("Connected zk");
-    }
-
-    public KafkaZkUtils(String zkConnectString) {
-        this(zkConnectString, CLIENT_SESSION_TIMEOUT, CLIENT_CONNECT_TIMEOUT);
     }
 
     public String getBrokerName(int brokerId) {
