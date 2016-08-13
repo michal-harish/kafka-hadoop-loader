@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package io.amient.kafka.hadoop.format;
+package io.amient.kafka.hadoop.io;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -39,10 +39,23 @@ import org.apache.hadoop.util.ReflectionUtils;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.text.SimpleDateFormat;
 import java.util.Iterator;
+import java.util.TimeZone;
 import java.util.TreeMap;
 
-public class KafkaOutputFormat<K extends Writable, V extends Writable> extends FileOutputFormat<K, V> {
+public class MultiOutputFormat<V extends Writable> extends FileOutputFormat<MsgMetadataWritable, V> {
+
+    private static final String CONFIG_PARTITION_PATH_FORMAT = "multioutput.path.partition.time.format";
+
+    /**
+     * @param format relative path format, e.g. 'topic={T}/d='yyyy-MM-dd'/h='HH'/{P}'
+     */
+    public void configurePartitionPathFormat(Configuration conf, String format) {
+        conf.set(CONFIG_PARTITION_PATH_FORMAT, format);
+    }
+
+
     public void checkOutputSpecs(JobContext job) throws IOException {
         // Ensure that the output directory is set and not already there
         Path outDir = getOutputPath(job);
@@ -58,7 +71,7 @@ public class KafkaOutputFormat<K extends Writable, V extends Writable> extends F
         );
     }
 
-    public RecordWriter<K, V> getRecordWriter(TaskAttemptContext context) throws IOException {
+    public RecordWriter<MsgMetadataWritable, V> getRecordWriter(TaskAttemptContext context) throws IOException {
 
         final TaskAttemptContext taskContext = context;
         final Configuration conf = context.getConfiguration();
@@ -67,39 +80,43 @@ public class KafkaOutputFormat<K extends Writable, V extends Writable> extends F
         CompressionCodec gzipCodec = null;
         if (isCompressed) {
             Class<? extends CompressionCodec> codecClass = getOutputCompressorClass(context, GzipCodec.class);
-            gzipCodec = (CompressionCodec) ReflectionUtils.newInstance(codecClass, conf);
+            gzipCodec = ReflectionUtils.newInstance(codecClass, conf);
             ext = ".gz";
         }
         final CompressionCodec codec = gzipCodec;
         final String extension = ext;
 
-        return new RecordWriter<K, V>() {
-            TreeMap<String, RecordWriter<K, V>> recordWriters = new TreeMap<String, RecordWriter<K, V>>();
+        final String pathFormat = conf.get(CONFIG_PARTITION_PATH_FORMAT, "'{T}/{P}'");
+        final SimpleDateFormat timeFormat = new SimpleDateFormat(pathFormat);
+        timeFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
 
-            public void write(K key, V value) throws IOException {
+        return new RecordWriter<MsgMetadataWritable, V>() {
+            TreeMap<String, RecordWriter<Void, V>> recordWriters = new TreeMap<>();
 
-                String keyBasedPath = "d=" + key.toString();
+            Path prefixPath = ((FileOutputCommitter) getOutputCommitter(taskContext)).getWorkPath();
 
-                RecordWriter<K, V> rw = this.recordWriters.get(keyBasedPath);
+
+            public void write(MsgMetadataWritable key, V value) throws IOException {
+
+                String suffixPath = timeFormat.format(key.getTimestamp() * 1000)
+                        .replace("{T}", key.getSplit().getTopic())
+                        .replace("{P}", String.valueOf(key.getSplit().getPartition()));
+                suffixPath += "/" + key.getSplit().getWatermark();
+
+                RecordWriter<Void, V> rw = this.recordWriters.get(suffixPath);
                 try {
                     if (rw == null) {
-                        Path file = new Path(
-                                ((FileOutputCommitter) getOutputCommitter(taskContext)).getWorkPath(),
-                                getUniqueFile(
-                                        taskContext, keyBasedPath + "/" + taskContext.getJobID().toString().replace("job_", ""),
-                                        extension
-                                )
-                        );
+                        Path file = new Path(prefixPath, getUniqueFile(taskContext, suffixPath, extension));
                         FileSystem fs = file.getFileSystem(conf);
                         FSDataOutputStream fileOut = fs.create(file, false);
                         if (isCompressed) {
-                            rw = new LineRecordWriter<K, V>(new DataOutputStream(codec.createOutputStream(fileOut)));
+                            rw = new LineRecordWriter<>(new DataOutputStream(codec.createOutputStream(fileOut)));
                         } else {
-                            rw = new LineRecordWriter<K, V>(fileOut);
+                            rw = new LineRecordWriter<>(fileOut);
                         }
-                        this.recordWriters.put(keyBasedPath, rw);
+                        this.recordWriters.put(suffixPath, rw);
                     }
-                    rw.write(key, value);
+                    rw.write(null, value);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -111,7 +128,7 @@ public class KafkaOutputFormat<K extends Writable, V extends Writable> extends F
             public void close(TaskAttemptContext context) throws IOException, InterruptedException {
                 Iterator<String> keys = this.recordWriters.keySet().iterator();
                 while (keys.hasNext()) {
-                    RecordWriter<K, V> rw = this.recordWriters.get(keys.next());
+                    RecordWriter<Void, V> rw = this.recordWriters.get(keys.next());
                     rw.close(context);
                 }
                 this.recordWriters.clear();
@@ -122,8 +139,8 @@ public class KafkaOutputFormat<K extends Writable, V extends Writable> extends F
     }
 
     //TODO delegate to pluggable formatter whether it's line or binary etc
-    protected static class LineRecordWriter<K extends Writable, V extends Writable>
-            extends RecordWriter<K, V> {
+    protected static class LineRecordWriter<V extends Writable>
+            extends RecordWriter<Void, V> {
         private static final String utf8 = "UTF-8";
         private static final byte[] newline;
 
@@ -141,7 +158,7 @@ public class KafkaOutputFormat<K extends Writable, V extends Writable> extends F
             this.out = out;
         }
 
-        public synchronized void write(K key, V value)
+        public synchronized void write(Void key, V value)
                 throws IOException {
 
             boolean nullValue = value == null || value instanceof NullWritable;

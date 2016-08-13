@@ -19,14 +19,13 @@
 
 package io.amient.kafka.hadoop;
 
-import io.amient.kafka.hadoop.format.KafkaInputFormat;
-import io.amient.kafka.hadoop.format.KafkaInputSplit;
-import io.amient.kafka.hadoop.format.KafkaOutputFormat;
+import io.amient.kafka.hadoop.io.KafkaInputFormat;
+import io.amient.kafka.hadoop.io.MultiOutputFormat;
 import org.apache.commons.cli.*;
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.DefaultStringifier;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.Job;
@@ -35,7 +34,6 @@ import org.apache.hadoop.util.ToolRunner;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.List;
 
 public class HadoopJob extends Configured implements Tool {
 
@@ -58,29 +56,22 @@ public class HadoopJob extends Configured implements Tool {
         Configuration conf = getConf();
         conf.setBoolean("mapred.map.tasks.speculative.execution", false);
 
-        String[] topics;
         if (cmd.hasOption("topics")) {
             LOG.info("Using topics: " + cmd.getOptionValue("topics"));
-            topics = cmd.getOptionValue("topics").split(",");
-            conf.setStrings("kafka.topics", topics);
+            KafkaInputFormat.configureKafkaTopics(conf, cmd.getOptionValue("topics"));
         } else if (cmd.hasOption("filter")) {
-            conf.set("kafka.topic.filter", cmd.getOptionValue("filter"));
-            LOG.info("Using topic filter: " + conf.get("kafka.topic.filter"));
-            throw new Exception("Topic filter not implemented");
+            LOG.info("Using topic filter: " + cmd.getOptionValue("filter"));
+            //TODO KafkaInputFormat.configureTopicFilter(conf, cmd.getOptionValue("filter"));
+            throw new NotImplementedException("Topic filter not implemented");
         } else {
             printHelpAndExit(options);
         }
 
-        conf.set("kafka.group.id", cmd.getOptionValue("consumer-group", "dev-hadoop-loader"));
-        LOG.info("Registering under consumer group: " + conf.get("kafka.group.id"));
-
-        conf.set("kafka.zookeeper.connect", cmd.getOptionValue("zk-connect", "localhost:2181"));
-
-        LOG.info("Using ZooKeeper connection: " + conf.get("kafka.zookeeper.connect"));
+        KafkaInputFormat.configureGroupId(conf, cmd.getOptionValue("consumer-group", "dev-hadoop-loader"));
+        KafkaInputFormat.configureZkConnection(conf, cmd.getOptionValue("zk-connect", "localhost:2181"));
 
         if (cmd.getOptionValue("autooffset-reset") != null) {
-            conf.set("kafka.watermark.reset", cmd.getOptionValue("autooffset-reset"));
-            LOG.info("SHOULD RESET OFFSET TO: " + conf.get("kafka.watermark.reset"));
+            KafkaInputFormat.configureAutoOffsetReset(conf, cmd.getOptionValue("autooffset-reset"));
         }
 
         JobConf jobConf = new JobConf(conf);
@@ -98,7 +89,7 @@ public class HadoopJob extends Configured implements Tool {
         );
 
         if (new File(jarTarget.toUri()).exists()) {
-            // running from eclipse / as maven
+            // running from IDE/ as maven
             jobConf.setJar(jarTarget.toUri().getPath());
             LOG.info("Using target jar: " + jarTarget.toString());
         } else {
@@ -107,11 +98,6 @@ public class HadoopJob extends Configured implements Tool {
             LOG.info("Using parent jar: " + jobConf.getJar());
         }
 
-        // determine all partitions + leaders ... save to config/job context
-        // in the KIF -> load data from job context.config and return splits
-
-
-        boolean success = false;
 
         Job job = Job.getInstance(jobConf, "kafka.hadoop.loader");
 
@@ -119,18 +105,16 @@ public class HadoopJob extends Configured implements Tool {
         job.setMapperClass(HadoopJobMapper.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
-        job.setOutputFormatClass(KafkaOutputFormat.class);
+        job.setOutputFormatClass(MultiOutputFormat.class);
         job.setNumReduceTasks(0);
 
-        KafkaOutputFormat.setOutputPath(job, new Path(hdfsPath));
-        KafkaOutputFormat.setCompressOutput(job, cmd.getOptionValue("compress-output", "on").equals("on"));
+        MultiOutputFormat.setOutputPath(job, new Path(hdfsPath));
+        MultiOutputFormat.setCompressOutput(job, cmd.getOptionValue("compress-output", "on").equals("on"));
 
         LOG.info("Output hdfs location: {}", hdfsPath);
-        LOG.info("Output hdfs compression: {}", KafkaOutputFormat.getCompressOutput(job));
+        LOG.info("Output hdfs compression: {}", MultiOutputFormat.getCompressOutput(job));
 
-        success = job.waitForCompletion(true);
-
-        return success ? 0 : -1;
+        return job.waitForCompletion(true) ? 0 : -1;
     }
 
     private void printHelpAndExit(Options options) {

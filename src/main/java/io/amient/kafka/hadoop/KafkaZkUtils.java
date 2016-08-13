@@ -39,8 +39,6 @@ import java.util.Map;
 public class KafkaZkUtils implements Closeable {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaZkUtils.class);
-    private static final int CLIENT_SESSION_TIMEOUT = 10000;
-    private static final int CLIENT_CONNECT_TIMEOUT = 10000;
 
     public static final String CONSUMERS_PATH = "/consumers";
     public static final String BROKER_IDS_PATH = "/brokers/ids";

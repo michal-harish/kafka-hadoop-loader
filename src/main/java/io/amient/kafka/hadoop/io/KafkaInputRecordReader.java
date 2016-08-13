@@ -17,11 +17,9 @@
  * limitations under the License.
  */
 
-package io.amient.kafka.hadoop.format;
+package io.amient.kafka.hadoop.io;
 
 import io.amient.kafka.hadoop.KafkaZkUtils;
-import io.amient.kafka.hadoop.writable.MessageMetadataWritable;
-import io.amient.kafka.hadoop.writable.MessageMetadataWritableBuilder;
 import kafka.api.FetchRequest;
 import kafka.api.FetchRequestBuilder;
 import kafka.api.PartitionFetchInfo;
@@ -48,7 +46,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-public class KafkaInputRecordReader extends RecordReader<MessageMetadataWritable, BytesWritable> {
+public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, BytesWritable> {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaInputRecordReader.class);
     private static final long LATEST_TIME = -1L;
@@ -69,11 +67,10 @@ public class KafkaInputRecordReader extends RecordReader<MessageMetadataWritable
 
     private ByteBufferMessageSet messages;
     private Iterator<MessageAndOffset> iterator;
-    private MessageMetadataWritable key;
+    private MsgMetadataWritable key;
     private BytesWritable value;
 
     private long numProcessedMessages = 0L;
-    private final MessageMetadataWritableBuilder keyBuilder = new MessageMetadataWritableBuilder();
 
     @Override
     public void initialize(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException {
@@ -85,17 +82,18 @@ public class KafkaInputRecordReader extends RecordReader<MessageMetadataWritable
         this.split = (KafkaInputSplit) split;
         this.watermark = this.split.getWatermark();
         this.topicAndPartition = new TopicAndPartition(this.split.getTopic(), this.split.getPartition());
-        this.fetchSize = conf.getInt("kafka.fetch.message.max.bytes", 1024 * 1024);
-        this.clientId = conf.get("kafka.group.id");
-        this.timeout = conf.getInt("kafka.socket.timeout.ms", 3000);
-        int bufferSize = conf.getInt("kafka.socket.receive.buffer.bytes", 64 * 1024);
+        this.fetchSize = conf.getInt(KafkaInputFormat.CONFIG_KAFKA_MESSAGE_MAX_BYTES, 1024 * 1024);
+        this.clientId = conf.get(KafkaInputFormat.CONFIG_KAFKA_GROUP_ID);
+        this.timeout = conf.getInt(KafkaInputFormat.CONFIG_KAFKA_SOCKET_TIMEOUT_MS, 3000);
+        int bufferSize = conf.getInt(KafkaInputFormat.CONFIG_KAFKA_RECEIVE_BUFFER_BYTES, 64 * 1024);
 
-        consumer = new SimpleConsumer(this.split.getBrokerHost(), this.split.getBrokerPort(), timeout, bufferSize, clientId);
+        consumer = new SimpleConsumer(
+                this.split.getBrokerHost(), this.split.getBrokerPort(), timeout, bufferSize, clientId);
 
         earliestOffset = getEarliestOffset();
         latestOffset = getLatestOffset();
 
-        String reset = conf.get("kafka.watermark.reset", "watermark");
+        String reset = conf.get(KafkaInputFormat.CONFIG_KAFKA_AUTOOFFSET_RESET, "watermark");
         if ("earliest".equals(reset)) {
             resetWatermark(earliestOffset);
         } else if ("latest".equals(reset)) {
@@ -125,10 +123,6 @@ public class KafkaInputRecordReader extends RecordReader<MessageMetadataWritable
             watermark
         );
 
-        keyBuilder.setTopic(topicAndPartition.topic());
-        keyBuilder.setBrokerHost(this.split.getBrokerHost());
-        keyBuilder.setBrokerId(Integer.parseInt(this.split.getBrokerId()));
-        keyBuilder.setPartition(topicAndPartition.partition());
     }
 
     @Override
@@ -184,7 +178,9 @@ public class KafkaInputRecordReader extends RecordReader<MessageMetadataWritable
             watermark = messageOffset.nextOffset();
             Message message = messageOffset.message();
 
-            key = keyBuilder.setOffset(messageOffset.offset()).createMessageSourceWritable();
+            key = new MsgMetadataWritable(split, messageOffset.offset());
+
+            //TODO handle null message payloads
             value.set(message.payload().array(), message.payload().arrayOffset(), message.payloadSize());
 
             numProcessedMessages++;
@@ -199,7 +195,7 @@ public class KafkaInputRecordReader extends RecordReader<MessageMetadataWritable
     }
 
     @Override
-    public MessageMetadataWritable getCurrentKey() throws IOException, InterruptedException {
+    public MsgMetadataWritable getCurrentKey() throws IOException, InterruptedException {
         return key;
     }
 
@@ -228,12 +224,12 @@ public class KafkaInputRecordReader extends RecordReader<MessageMetadataWritable
 
         if (numProcessedMessages > 0) {
             KafkaZkUtils zk = new KafkaZkUtils(
-                conf.get("kafka.zookeeper.connect"),
-                conf.getInt("kafka.zookeeper.session.timeout.ms", 10000),
-                conf.getInt("kafka.zookeeper.connection.timeout.ms", 10000)
+                conf.get(KafkaInputFormat.CONFIG_ZK_CONNECT),
+                conf.getInt(KafkaInputFormat.CONFIG_ZK_SESSION_TIMEOUT_MS, 10000),
+                conf.getInt(KafkaInputFormat.CONFIG_ZK_SESSION_TIMEOUT_MS, 10000)
             );
 
-            String group = conf.get("kafka.group.id");
+            String group = conf.get(KafkaInputFormat.CONFIG_KAFKA_GROUP_ID);
             zk.commitLastConsumedOffset(group, split.getTopic(), split.getPartition(), watermark);
             zk.close();
         }

@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package io.amient.kafka.hadoop.format;
+package io.amient.kafka.hadoop.io;
 
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
@@ -108,6 +108,40 @@ public class KafkaInputSplit extends InputSplit implements Writable {
 
     @Override
     public String toString() {
-        return broker + "-" + topic + "-" + partition + "-" + lastCommit;
+        return String.format("Topic: %s Partition: %s Segment: %s ",
+                getTopic(), String.valueOf(getPartition()), String.valueOf(getWatermark()));
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof KafkaInputSplit)) {
+            return false;
+        }
+
+        KafkaInputSplit that = (KafkaInputSplit) o;
+
+        if (lastCommit != that.lastCommit) {
+            return false;
+        } else if (partition != that.partition) {
+            return false;
+        } else if (!topic.equals(that.topic)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        int result = topic.hashCode();
+        result = 31 * result + (int) lastCommit;
+        result = 31 * result + partition;
+        return result;
+    }
+
 }

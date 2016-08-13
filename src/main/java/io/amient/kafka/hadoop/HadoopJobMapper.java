@@ -19,59 +19,73 @@
 
 package io.amient.kafka.hadoop;
 
-import io.amient.kafka.hadoop.writable.MessageMetadataWritable;
+import io.amient.kafka.hadoop.api.TimestampExtractor;
+import io.amient.kafka.hadoop.io.MsgMetadataWritable;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.TimeZone;
 
-public class HadoopJobMapper extends Mapper<MessageMetadataWritable, BytesWritable, MessageMetadataWritable, BytesWritable> {
+public class HadoopJobMapper extends Mapper<MsgMetadataWritable, BytesWritable, MsgMetadataWritable, BytesWritable> {
 
     static Logger log = LoggerFactory.getLogger(HadoopJobMapper.class);
 
-    //private Deserializer kafkaDeserializer;
-    //private hadoopFormatSerializer
+    private static final String CONFIG_SERDE_CLASS = "mapper.serde.class";
+    private static final String CONFIG_TIMESTAMP_EXTRACTOR_CLASS = "mapper.timestamp.extractor.class";
+
+    private Serde serde = null;
+    private TimestampExtractor extractor;
+    //TODO instead of serde make the OUTVAL generic and configure Deserializer kafkaDeserializer;
+
+
+    public interface Serde {
+        public BytesWritable map(BytesWritable value) throws IOException;
+    }
+
+
+    public static void configureSerde(Configuration conf, String className) {
+        conf.set(CONFIG_SERDE_CLASS, className);
+    }
+
+    public static void configureTimestampExtractor(Configuration conf, String className) {
+        conf.set(CONFIG_TIMESTAMP_EXTRACTOR_CLASS, className);
+    }
 
 
     @Override
     protected void setup(Context context) throws IOException, InterruptedException {
+        Configuration conf = context.getConfiguration();
+        try {
+            Class<?> serdeClass = conf.getClass(CONFIG_SERDE_CLASS, null);
+            if (serdeClass != null) {
+                serde = serdeClass.asSubclass(Serde.class).newInstance();
+            }
+            Class<?> extractorClass = conf.getClass(CONFIG_TIMESTAMP_EXTRACTOR_CLASS, null);
+            if (extractorClass != null) {
+                extractor = extractorClass.asSubclass(TimestampExtractor.class).newInstance();
+            }
+
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
         super.setup(context);
-        //TODO initialise deserialiser from configuration by class name
-        //TODO intialise partitioner from configuration
-        //TODO initialise timestamp extractor if partitioning by date is enabled
     }
 
     @Override
-    public void map(MessageMetadataWritable key, BytesWritable value, Context context) throws IOException {
+    public void map(MsgMetadataWritable key, BytesWritable value, Context context) throws IOException {
         try {
-            context.write(key, map(key, value));
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
-        }
-    }
-
-    public BytesWritable map(MessageMetadataWritable key, BytesWritable value) {
-        BytesWritable outputValue = null;
-        if (key != null) {
-            if (value.getBytes().length > 0) {
-                outputValue = value;
-                //outputValue = new BytesWritable();
-
-//                //TODO invoke plugabble output formatter - i.e. schemaless, test concrete json
-//                Long timestamp = 0L;
-//                //TODO partition by topic
-//                //TODO partition by time -> formatted - prepare for kafka message containing timestamp
-//                //TODO partition by key
-//                SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd H");
-//                f.setTimeZone(TimeZone.getTimeZone("UTC"));
-//                String[] dateTime = f.format(new java.util.Date(timestamp)).split(" ");
+            if (key != null) {
+                MsgMetadataWritable outputKey = key;
+                if (extractor != null) outputKey = new MsgMetadataWritable(key, extractor.extract(key, value));
+                BytesWritable outputValue = (serde == null) ? value : serde.map(value);
+                context.write(outputKey, outputValue);
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
-        return outputValue;
     }
+
 }
