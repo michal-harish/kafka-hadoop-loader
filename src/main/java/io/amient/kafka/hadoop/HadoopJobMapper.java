@@ -59,16 +59,17 @@ public class HadoopJobMapper extends Mapper<MessageMetadataWritable, BytesWritab
         BytesWritable outputValue = null;
         if (key != null) {
             if (value.getBytes().length > 0) {
-                outputValue = new BytesWritable();
-                //TODO invoke plugabble output formatter - i.e. schemaless, test concrete json
-                Long timestamp = 0L;
-                //TODO partition by topic
-                //TODO partition by time -> formatted - prepare for kafka message containing timestamp
-                //TODO partition by key
-                SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd H");
-                f.setTimeZone(TimeZone.getTimeZone("UTC"));
-                String[] dateTime = f.format(new java.util.Date(timestamp)).split(" ");
+                outputValue = value;
+                //outputValue = new BytesWritable();
 
+//                //TODO invoke plugabble output formatter - i.e. schemaless, test concrete json
+//                Long timestamp = 0L;
+//                //TODO partition by topic
+//                //TODO partition by time -> formatted - prepare for kafka message containing timestamp
+//                //TODO partition by key
+//                SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd H");
+//                f.setTimeZone(TimeZone.getTimeZone("UTC"));
+//                String[] dateTime = f.format(new java.util.Date(timestamp)).split(" ");
             }
         }
         return outputValue;
