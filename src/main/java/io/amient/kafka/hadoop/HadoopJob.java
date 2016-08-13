@@ -60,10 +60,9 @@ public class HadoopJob extends Configured implements Tool {
 
         String[] topics;
         if (cmd.hasOption("topics")) {
-            conf.set("kafka.topics", cmd.getOptionValue("topics"));
-            LOG.info("Using topics: " + conf.get("kafka.topics"));
+            LOG.info("Using topics: " + cmd.getOptionValue("topics"));
             topics = cmd.getOptionValue("topics").split(",");
-            conf.setStrings("vdna.khl.topics", topics);
+            conf.setStrings("kafka.topics", topics);
         } else if (cmd.hasOption("filter")) {
             conf.set("kafka.topic.filter", cmd.getOptionValue("filter"));
             LOG.info("Using topic filter: " + conf.get("kafka.topic.filter"));
