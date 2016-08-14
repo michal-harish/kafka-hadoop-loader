@@ -67,8 +67,10 @@ public class HadoopJob extends Configured implements Tool {
             printHelpAndExit(options);
         }
 
-        KafkaInputFormat.configureGroupId(conf, cmd.getOptionValue("consumer-group", "dev-hadoop-loader"));
         KafkaInputFormat.configureZkConnection(conf, cmd.getOptionValue("zk-connect", "localhost:2181"));
+        if (cmd.hasOption("consumer-group")) {
+            CheckpointManager.configureUseZooKeeper(conf, cmd.getOptionValue("consumer-group", "dev-hadoop-loader"));
+        }
 
         if (cmd.getOptionValue("autooffset-reset") != null) {
             KafkaInputFormat.configureAutoOffsetReset(conf, cmd.getOptionValue("autooffset-reset"));

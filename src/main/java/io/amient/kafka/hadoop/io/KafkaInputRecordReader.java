@@ -19,6 +19,7 @@
 
 package io.amient.kafka.hadoop.io;
 
+import io.amient.kafka.hadoop.CheckpointManager;
 import io.amient.kafka.hadoop.KafkaZkUtils;
 import kafka.api.FetchRequest;
 import kafka.api.FetchRequestBuilder;
@@ -48,19 +49,20 @@ import java.util.Map;
 
 public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, BytesWritable> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(KafkaInputRecordReader.class);
+    private static final Logger log = LoggerFactory.getLogger(KafkaInputRecordReader.class);
     private static final long LATEST_TIME = -1L;
     private static final long EARLIEST_TIME = -2L;
+    final private static String CLIENT_ID = "kafka-hadoop-loader";
 
     private Configuration conf;
     private KafkaInputSplit split;
     private SimpleConsumer consumer;
     private TopicAndPartition topicAndPartition;
-    private String clientId;
 
     private long earliestOffset;
     private long latestOffset;
-    private long watermark;
+
+    private long nextOffsetToConsume;
 
     private int fetchSize;
     private int timeout;
@@ -80,15 +82,14 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
     public void initialize(InputSplit split, Configuration conf) throws IOException, InterruptedException {
         this.conf = conf;
         this.split = (KafkaInputSplit) split;
-        this.watermark = this.split.getWatermark();
+        this.nextOffsetToConsume = this.split.getStartOffset();
         this.topicAndPartition = new TopicAndPartition(this.split.getTopic(), this.split.getPartition());
         this.fetchSize = conf.getInt(KafkaInputFormat.CONFIG_KAFKA_MESSAGE_MAX_BYTES, 1024 * 1024);
-        this.clientId = conf.get(KafkaInputFormat.CONFIG_KAFKA_GROUP_ID);
         this.timeout = conf.getInt(KafkaInputFormat.CONFIG_KAFKA_SOCKET_TIMEOUT_MS, 3000);
         int bufferSize = conf.getInt(KafkaInputFormat.CONFIG_KAFKA_RECEIVE_BUFFER_BYTES, 64 * 1024);
 
         consumer = new SimpleConsumer(
-                this.split.getBrokerHost(), this.split.getBrokerPort(), timeout, bufferSize, clientId);
+                this.split.getBrokerHost(), this.split.getBrokerPort(), timeout, bufferSize, CLIENT_ID);
 
         earliestOffset = getEarliestOffset();
         latestOffset = getLatestOffset();
@@ -98,21 +99,21 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
             resetWatermark(earliestOffset);
         } else if ("latest".equals(reset)) {
             resetWatermark(latestOffset);
-        } else if (watermark < earliestOffset) {
+        } else if (nextOffsetToConsume < earliestOffset) {
             // We have lost some data, precisely between the watermark and the earliest offset
-            LOG.warn(
-                "Topic: {}, broker: {}, partition: {} ~ Resetting watermark as last read watermark was {} and the earliest available is {}",
+            log.warn(
+                "Topic: {}, broker: {}, partition: {} ~ Resetting watermark as last watermark was {} and the earliest available is {}",
                 topicAndPartition.topic(),
                 this.split.getBrokerId(),
                 topicAndPartition.partition(),
-                watermark,
+                nextOffsetToConsume,
                 earliestOffset
             );
 
             resetWatermark(earliestOffset);
         }
 
-        LOG.info(
+        log.info(
             "Topic: {}, broker: {}, partition: {} ~ Split: {}, earliest: {}, latest: {}, starting: {}",
             topicAndPartition.topic(),
             this.split.getBrokerId(),
@@ -120,7 +121,7 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
             this.split,
             earliestOffset,
             latestOffset,
-            watermark
+            nextOffsetToConsume
         );
 
     }
@@ -134,20 +135,20 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
         if (messages == null) {
             Map<TopicAndPartition, PartitionFetchInfo> requestInfo = new HashMap<>();
 
-            PartitionFetchInfo partitionFetchInfo = new PartitionFetchInfo(watermark, fetchSize);
+            PartitionFetchInfo partitionFetchInfo = new PartitionFetchInfo(nextOffsetToConsume, fetchSize);
             requestInfo.put(topicAndPartition, partitionFetchInfo);
 
             FetchRequest fetchRequest = new FetchRequestBuilder()
-                .clientId(clientId)
-                .addFetch(topicAndPartition.topic(), topicAndPartition.partition(), watermark, fetchSize)
+                .clientId(CLIENT_ID)
+                .addFetch(topicAndPartition.topic(), topicAndPartition.partition(), nextOffsetToConsume, fetchSize)
                 .build();
 
-            LOG.info(
+            log.info(
                 "Topic: {}, broker: {}, partition: {} ~ fetching offset: {}",
                 topicAndPartition.topic(),
                 split.getBrokerId(),
                 topicAndPartition.partition(),
-                watermark
+                nextOffsetToConsume
             );
 
             FetchResponse response = consumer.fetch(fetchRequest);
@@ -155,10 +156,10 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
 
             if (response.errorCode(topicAndPartition.topic(), topicAndPartition.partition()) == ErrorMapping
                 .OffsetOutOfRangeCode()) {
-                LOG.info("Out of bounds = " + watermark);
+                log.info("Out of bounds = " + nextOffsetToConsume);
                 return false;
             } else if (response.errorCode(topicAndPartition.topic(), topicAndPartition.partition()) != 0) {
-                LOG.warn(
+                log.warn(
                     "Messages fetch error code: "
                     + response.errorCode(topicAndPartition.topic(), topicAndPartition.partition())
                 );
@@ -175,7 +176,7 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
         if (iterator.hasNext()) {
             MessageAndOffset messageOffset = iterator.next();
 
-            watermark = messageOffset.nextOffset();
+            nextOffsetToConsume = messageOffset.nextOffset();
             Message message = messageOffset.message();
 
             key = new MsgMetadataWritable(split, messageOffset.offset());
@@ -190,7 +191,7 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
             }
             return true;
         }
-        LOG.warn("Unexpected iterator end");
+        log.warn("Unexpected iterator end");
         return false;
     }
 
@@ -206,15 +207,15 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
 
     @Override
     public float getProgress() throws IOException, InterruptedException {
-        if (watermark >= latestOffset || earliestOffset == latestOffset) {
+        if (nextOffsetToConsume > latestOffset || earliestOffset == latestOffset) {
             return 1.0f;
         }
-        return Math.min(1.0f, (watermark - earliestOffset) / (float) (latestOffset - earliestOffset));
+        return Math.min(1.0f, (nextOffsetToConsume - earliestOffset) / (float) (latestOffset - earliestOffset));
     }
 
     @Override
     public void close() throws IOException {
-        LOG.info(
+        log.info(
             "Topic: {}, broker: {}, partition: {} ~ num. processed messages {}",
             topicAndPartition.topic(),
             split.getBrokerId(),
@@ -223,15 +224,15 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
         );
 
         if (numProcessedMessages > 0) {
-            KafkaZkUtils zk = new KafkaZkUtils(
+            //TODO abstract checkpoint manager, either zk or hdfs
+            try(KafkaZkUtils zk = new KafkaZkUtils(
                 conf.get(KafkaInputFormat.CONFIG_ZK_CONNECT),
                 conf.getInt(KafkaInputFormat.CONFIG_ZK_SESSION_TIMEOUT_MS, 10000),
                 conf.getInt(KafkaInputFormat.CONFIG_ZK_SESSION_TIMEOUT_MS, 10000)
-            );
-
-            String group = conf.get(KafkaInputFormat.CONFIG_KAFKA_GROUP_ID);
-            zk.commitLastConsumedOffset(group, split.getTopic(), split.getPartition(), watermark);
-            zk.close();
+            )) {
+                new CheckpointManager(conf, zk)
+                        .commitOffsets(split.getTopic(), split.getPartition(), nextOffsetToConsume - 1);
+            }
         }
         consumer.close();
     }
@@ -240,7 +241,7 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
         // return kafka.api.OffsetRequest.EarliestTime();
         Map<TopicAndPartition, PartitionOffsetRequestInfo> requestInfoMap = new HashMap<>();
         requestInfoMap.put(topicAndPartition, new PartitionOffsetRequestInfo(EARLIEST_TIME, 1));
-        OffsetRequest offsetRequest = new OffsetRequest(requestInfoMap, kafka.api.OffsetRequest.CurrentVersion(), clientId);
+        OffsetRequest offsetRequest = new OffsetRequest(requestInfoMap, kafka.api.OffsetRequest.CurrentVersion(), CLIENT_ID);
 
         if (earliestOffset <= 0) {
             OffsetResponse offsetResponse = consumer.getOffsetsBefore(offsetRequest);
@@ -253,7 +254,7 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
         // return kafka.api.OffsetRequest.LatestTime();
         Map<TopicAndPartition, PartitionOffsetRequestInfo> requestInfoMap = new HashMap<>();
         requestInfoMap.put(topicAndPartition, new PartitionOffsetRequestInfo(LATEST_TIME, 1));
-        OffsetRequest offsetRequest = new OffsetRequest(requestInfoMap, kafka.api.OffsetRequest.CurrentVersion(), clientId);
+        OffsetRequest offsetRequest = new OffsetRequest(requestInfoMap, kafka.api.OffsetRequest.CurrentVersion(), CLIENT_ID);
 
         if (latestOffset <= 0) {
             OffsetResponse offsetResponse = consumer.getOffsetsBefore(offsetRequest);
@@ -274,9 +275,9 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
 
         Map<TopicAndPartition, PartitionOffsetRequestInfo> requestInfoMap = new HashMap<>();
         requestInfoMap.put(topicAndPartition, new PartitionOffsetRequestInfo(offset, 1));
-        OffsetRequest offsetRequest = new OffsetRequest(requestInfoMap, kafka.api.OffsetRequest.CurrentVersion(), clientId);
+        OffsetRequest offsetRequest = new OffsetRequest(requestInfoMap, kafka.api.OffsetRequest.CurrentVersion(), CLIENT_ID);
 
-        LOG.info(
+        log.info(
             "Topic: {}, broker: {}, partition: {} ~ Attempting to fetch offset where earliest was {}",
             topicAndPartition.topic(),
             this.split.getBrokerId(),
@@ -289,7 +290,7 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
             offset = offsetResponse.offsets(topicAndPartition.topic(), topicAndPartition.partition())[0];
         }
 
-        LOG.info(
+        log.info(
             "Topic: {}, broker: {}, partition: {} ~ Resetting offset to: {}",
             topicAndPartition.topic() ,
             split.getBrokerId(),
@@ -297,6 +298,6 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
             offset
         );
 
-        watermark = earliestOffset = offset;
+        nextOffsetToConsume = earliestOffset = offset;
     }
 }

@@ -21,7 +21,6 @@ import static org.junit.Assert.assertEquals;
 
 public class TimestampExtractorTest {
 
-    final private String jobId = "test-hadoop-job";
     private MapDriver<MsgMetadataWritable, BytesWritable, MsgMetadataWritable, BytesWritable> mapDriver;
 
     @Before
@@ -32,7 +31,7 @@ public class TimestampExtractorTest {
     @Test
     public void testTextTimeExtractor() throws IOException {
         KafkaInputSplit split = new KafkaInputSplit(1, "host-01", "texttopic", 3, 1234567890L);
-        MsgMetadataWritable inputKey = new MsgMetadataWritable(split, split.getWatermark() + 1);
+        MsgMetadataWritable inputKey = new MsgMetadataWritable(split, split.getStartOffset());
 
         String data = "2016-10-01 12:35:00\tSome log data prefixed with timestamp";
         mapDriver.withInput(inputKey, new BytesWritable(data.getBytes()));
@@ -67,7 +66,7 @@ public class TimestampExtractorTest {
     @Test
     public void testJsonTimeExtractor() throws IOException {
         KafkaInputSplit split = new KafkaInputSplit(1, "host-01", "texttopic", 3, 1234567890L);
-        MsgMetadataWritable inputKey = new MsgMetadataWritable(split, split.getWatermark() + 1);
+        MsgMetadataWritable inputKey = new MsgMetadataWritable(split, split.getStartOffset());
 
         String data = "{\"version\":5,\"timestamp\":1402944501425,\"date\":\"2014-06-16\",\"utc\":1402944501}";
         mapDriver.withInput(inputKey, new BytesWritable(data.getBytes()));

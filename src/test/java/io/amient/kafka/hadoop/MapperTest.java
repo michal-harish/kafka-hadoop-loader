@@ -46,7 +46,7 @@ public class MapperTest {
     @Test
     public void testCanMapEmptyPayload() throws IOException {
         KafkaInputSplit split = new KafkaInputSplit(1, "host-01", "topic1", 3, 1234567890L);
-        MsgMetadataWritable inputKey = new MsgMetadataWritable(split, split.getWatermark() + 1);
+        MsgMetadataWritable inputKey = new MsgMetadataWritable(split, split.getStartOffset());
         BytesWritable inputValue = new BytesWritable(new byte[0]);
         mapDriver.withInput(inputKey, inputValue);
         final List<Pair<MsgMetadataWritable, BytesWritable>> result = mapDriver.run();
@@ -58,7 +58,7 @@ public class MapperTest {
     @Test
     public void canCopySimpleTextMessage() throws IOException {
         KafkaInputSplit split = new KafkaInputSplit(1, "host-01", "texttopic", 3, 1234567890L);
-        MsgMetadataWritable inputKey = new MsgMetadataWritable(split, split.getWatermark() + 1);
+        MsgMetadataWritable inputKey = new MsgMetadataWritable(split, split.getStartOffset());
 
         String messageText = "some message with wierd payload\u0000\u0000\u0000\u0000\u0000\u0000";
         BytesWritable inputValue = new BytesWritable(messageText.getBytes());

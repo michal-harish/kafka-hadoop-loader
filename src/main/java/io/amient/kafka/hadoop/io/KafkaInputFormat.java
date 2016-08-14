@@ -19,6 +19,7 @@
 
 package io.amient.kafka.hadoop.io;
 
+import io.amient.kafka.hadoop.CheckpointManager;
 import io.amient.kafka.hadoop.KafkaZkUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.BytesWritable;
@@ -35,7 +36,7 @@ public class KafkaInputFormat extends InputFormat<MsgMetadataWritable, BytesWrit
     static final String CONFIG_ZK_SESSION_TIMEOUT_MS = "kafka.zookeeper.session.timeout.ms";
     static final String CONFIG_ZK_CONNECT_TIMEOUT_MS = "kafka.zookeeper.connection.timeout.ms";
     static final String CONFIG_KAFKA_TOPIC_LIST = "kafka.topics";
-    static final String CONFIG_KAFKA_GROUP_ID = "kafka.group.id";
+
     /**
      * possible values: `earliest`, `latest` or `watermark`
      */
@@ -47,10 +48,6 @@ public class KafkaInputFormat extends InputFormat<MsgMetadataWritable, BytesWrit
 
     public static void configureKafkaTopics(Configuration conf, String comaSeparatedTopicNames) {
         conf.set(KafkaInputFormat.CONFIG_KAFKA_TOPIC_LIST, comaSeparatedTopicNames);
-    }
-
-    public static void configureGroupId(Configuration conf, String optionValue) {
-        conf.set(KafkaInputFormat.CONFIG_KAFKA_GROUP_ID, optionValue);
     }
 
     public static void configureZkConnection(Configuration conf, String zkConnectString) {
@@ -70,12 +67,13 @@ public class KafkaInputFormat extends InputFormat<MsgMetadataWritable, BytesWrit
     @Override
     public List<InputSplit> getSplits(JobContext context) throws IOException, InterruptedException {
         Configuration conf = context.getConfiguration();
-        try (KafkaZkUtils zk = new KafkaZkUtils(
-                conf.get(CONFIG_ZK_CONNECT),
-                conf.getInt(CONFIG_ZK_SESSION_TIMEOUT_MS, 10000),
-                conf.getInt(CONFIG_ZK_CONNECT_TIMEOUT_MS, 10000)
+
+        try (KafkaZkUtils zkUtils = new KafkaZkUtils(
+                conf.get(KafkaInputFormat.CONFIG_ZK_CONNECT),
+                conf.getInt(KafkaInputFormat.CONFIG_ZK_SESSION_TIMEOUT_MS, 10000),
+                conf.getInt(KafkaInputFormat.CONFIG_ZK_CONNECT_TIMEOUT_MS, 10000)
         )) {
-            return createInputSplitPerPartitionLeader(zk, conf);
+            return createSplitsForPartitionLeader(conf, zkUtils);
         }
 
     }
@@ -88,26 +86,24 @@ public class KafkaInputFormat extends InputFormat<MsgMetadataWritable, BytesWrit
         return new KafkaInputRecordReader();
     }
 
-    private List<InputSplit> createInputSplitPerPartitionLeader(
-            KafkaZkUtils zkUtils,
-            Configuration configuration
-    ) throws IOException {
-        String[] inputTopics = configuration.get(CONFIG_KAFKA_TOPIC_LIST).split(",");
-        String consumerGroup = configuration.get(CONFIG_KAFKA_GROUP_ID);
+    private List<InputSplit> createSplitsForPartitionLeader(Configuration conf, KafkaZkUtils zk) throws IOException {
+        String[] inputTopics = conf.get(CONFIG_KAFKA_TOPIC_LIST).split(",");
+
+        CheckpointManager checkpoints = new CheckpointManager(conf, zk);
 
         List<InputSplit> splits = new ArrayList<>();
         for (String topic : inputTopics) {
-            Map<Integer, Integer> partitionLeaders = zkUtils.getPartitionLeaders(topic);
+            Map<Integer, Integer> partitionLeaders = zk.getPartitionLeaders(topic);
             for (int partition : partitionLeaders.keySet()) {
+
                 int brokerId = partitionLeaders.get(partition);
-                long lastConsumedOffset = zkUtils.getLastConsumedOffset(consumerGroup, topic, partition);
 
                 KafkaInputSplit split = new KafkaInputSplit(
                         brokerId,
-                        zkUtils.getBrokerName(brokerId),
+                        zk.getBrokerName(brokerId),
                         topic,
                         partition,
-                        lastConsumedOffset
+                        checkpoints.getNextOffsetToConsume(topic, partition)
                 );
 
                 splits.add(split);

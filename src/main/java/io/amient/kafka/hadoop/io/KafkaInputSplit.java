@@ -33,18 +33,18 @@ public class KafkaInputSplit extends InputSplit implements Writable {
     private String broker;
     private int partition;
     private String topic;
-    private long lastCommit;
+    private long startOffset;
 
     // Needed for reflection instantiation (Required because we are implementing the Writable interface)
     public KafkaInputSplit() {
     }
 
-    public KafkaInputSplit(int brokerId, String broker, String topic, int partition, long lastCommit) {
+    public KafkaInputSplit(int brokerId, String broker, String topic, int partition, long startOffset) {
         this.brokerId = String.valueOf(brokerId);
         this.broker = broker;
         this.partition = partition;
         this.topic = topic;
-        this.lastCommit = lastCommit;
+        this.startOffset = startOffset;
     }
 
     public void readFields(DataInput in) throws IOException {
@@ -52,7 +52,7 @@ public class KafkaInputSplit extends InputSplit implements Writable {
         broker = Text.readString(in);
         topic = Text.readString(in);
         partition = in.readInt();
-        lastCommit = in.readLong();
+        startOffset = in.readLong();
     }
 
     public void write(DataOutput out) throws IOException {
@@ -60,7 +60,7 @@ public class KafkaInputSplit extends InputSplit implements Writable {
         Text.writeString(out, broker);
         Text.writeString(out, topic);
         out.writeInt(partition);
-        out.writeLong(lastCommit);
+        out.writeLong(startOffset);
     }
 
     @Override
@@ -102,14 +102,14 @@ public class KafkaInputSplit extends InputSplit implements Writable {
         return topic;
     }
 
-    public long getWatermark() {
-        return lastCommit;
+    public long getStartOffset() {
+        return startOffset;
     }
 
     @Override
     public String toString() {
-        return String.format("Topic: %s Partition: %s Segment: %s ",
-                getTopic(), String.valueOf(getPartition()), String.valueOf(getWatermark()));
+        return String.format("Topic: %s Partition: %s Start-Offset: %s ",
+                getTopic(), String.valueOf(getPartition()), String.valueOf(getStartOffset()));
     }
 
     /** {@inheritDoc} */
@@ -124,7 +124,7 @@ public class KafkaInputSplit extends InputSplit implements Writable {
 
         KafkaInputSplit that = (KafkaInputSplit) o;
 
-        if (lastCommit != that.lastCommit) {
+        if (startOffset != that.startOffset) {
             return false;
         } else if (partition != that.partition) {
             return false;
@@ -139,7 +139,7 @@ public class KafkaInputSplit extends InputSplit implements Writable {
     @Override
     public int hashCode() {
         int result = topic.hashCode();
-        result = 31 * result + (int) lastCommit;
+        result = 31 * result + (int) startOffset;
         result = 31 * result + partition;
         return result;
     }

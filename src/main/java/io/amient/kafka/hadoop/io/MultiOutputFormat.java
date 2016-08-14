@@ -23,8 +23,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.NullWritable;
-import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapred.InvalidJobConfException;
@@ -44,7 +43,7 @@ import java.util.Iterator;
 import java.util.TimeZone;
 import java.util.TreeMap;
 
-public class MultiOutputFormat<V extends Writable> extends FileOutputFormat<MsgMetadataWritable, V> {
+public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, BytesWritable> {
 
     private static final String CONFIG_PARTITION_PATH_FORMAT = "multioutput.path.partition.time.format";
 
@@ -71,7 +70,8 @@ public class MultiOutputFormat<V extends Writable> extends FileOutputFormat<MsgM
         );
     }
 
-    public RecordWriter<MsgMetadataWritable, V> getRecordWriter(TaskAttemptContext context) throws IOException {
+    public RecordWriter<MsgMetadataWritable, BytesWritable> getRecordWriter(TaskAttemptContext context)
+            throws IOException {
 
         final TaskAttemptContext taskContext = context;
         final Configuration conf = context.getConfiguration();
@@ -90,29 +90,29 @@ public class MultiOutputFormat<V extends Writable> extends FileOutputFormat<MsgM
         final SimpleDateFormat timeFormat = new SimpleDateFormat(pathFormat);
         timeFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
 
-        return new RecordWriter<MsgMetadataWritable, V>() {
-            TreeMap<String, RecordWriter<Void, V>> recordWriters = new TreeMap<>();
+        return new RecordWriter<MsgMetadataWritable, BytesWritable>() {
+            TreeMap<String, RecordWriter<Void, BytesWritable>> recordWriters = new TreeMap<>();
 
             Path prefixPath = ((FileOutputCommitter) getOutputCommitter(taskContext)).getWorkPath();
 
 
-            public void write(MsgMetadataWritable key, V value) throws IOException {
+            public void write(MsgMetadataWritable key, BytesWritable value) throws IOException {
 
                 String suffixPath = timeFormat.format(key.getTimestamp() * 1000)
                         .replace("{T}", key.getSplit().getTopic())
                         .replace("{P}", String.valueOf(key.getSplit().getPartition()));
-                suffixPath += "/" + key.getSplit().getWatermark();
+                suffixPath += "/" + key.getSplit().getStartOffset();
 
-                RecordWriter<Void, V> rw = this.recordWriters.get(suffixPath);
+                RecordWriter<Void, BytesWritable> rw = this.recordWriters.get(suffixPath);
                 try {
                     if (rw == null) {
-                        Path file = new Path(prefixPath, getUniqueFile(taskContext, suffixPath, extension));
+                        Path file = new Path(prefixPath, suffixPath + extension);
                         FileSystem fs = file.getFileSystem(conf);
                         FSDataOutputStream fileOut = fs.create(file, false);
                         if (isCompressed) {
-                            rw = new LineRecordWriter<>(new DataOutputStream(codec.createOutputStream(fileOut)));
+                            rw = new LineRecordWriter(new DataOutputStream(codec.createOutputStream(fileOut)));
                         } else {
-                            rw = new LineRecordWriter<>(fileOut);
+                            rw = new LineRecordWriter(fileOut);
                         }
                         this.recordWriters.put(suffixPath, rw);
                     }
@@ -128,7 +128,7 @@ public class MultiOutputFormat<V extends Writable> extends FileOutputFormat<MsgM
             public void close(TaskAttemptContext context) throws IOException, InterruptedException {
                 Iterator<String> keys = this.recordWriters.keySet().iterator();
                 while (keys.hasNext()) {
-                    RecordWriter<Void, V> rw = this.recordWriters.get(keys.next());
+                    RecordWriter<Void, BytesWritable> rw = this.recordWriters.get(keys.next());
                     rw.close(context);
                 }
                 this.recordWriters.clear();
@@ -138,9 +138,7 @@ public class MultiOutputFormat<V extends Writable> extends FileOutputFormat<MsgM
         };
     }
 
-    //TODO delegate to pluggable formatter whether it's line or binary etc
-    protected static class LineRecordWriter<V extends Writable>
-            extends RecordWriter<Void, V> {
+    protected static class LineRecordWriter extends RecordWriter<Void, BytesWritable> {
         private static final String utf8 = "UTF-8";
         private static final byte[] newline;
 
@@ -158,14 +156,14 @@ public class MultiOutputFormat<V extends Writable> extends FileOutputFormat<MsgM
             this.out = out;
         }
 
-        public synchronized void write(Void key, V value)
+        public synchronized void write(Void key, BytesWritable value)
                 throws IOException {
 
-            boolean nullValue = value == null || value instanceof NullWritable;
+            boolean nullValue = value == null; //|| value instanceof NullWritable;
             if (nullValue) {
                 return;
             }
-            value.write(out);
+            out.write(value.getBytes(),  0, value.getLength());
             out.write(newline);
         }
 
