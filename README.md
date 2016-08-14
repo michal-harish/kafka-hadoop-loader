@@ -1,43 +1,67 @@
 # kafka-hadoop-loader
 
-This hadoop loader creates splits for each topic-broker-partition which creates
-ideal parallelism between kafka streams and mapper tasks.
+This is a hadoop job for incremental loading of kafka topics into hdfs.
+It works by creating a split for each partition, whether physical (
+pre kafka v.0.8) or logical( kafka v0.8 or higher). It differs from
+the most comprehensive solution (Kafka Connect) mainly in that it works
+for simple, schema-less cases directly off kafka brokers without
+ having to integrate with any other components.
 
-Further it does not use high level consumer and communicates with zookeeper directly
-for management of the consumed offsets, which are committed at the end of each map task,
-that is when the output file has been moved from hdfs_temp to its final destination. 
+# Offset-tracking
 
-The actual consumer and it's inner fetcher thread are wrapped as KafkaInputContext which
-is created for each Map Task's record reader object.
-
-The mapper then takes in offset,message pairs, parses the content for date and emits (date,message)
-which is in turn picked up by Output Format and partitioned on the hdfs-level to different location.
-
-
-# ANATOMY
-
-    HadoopJob
-        -> KafkaInputFormat
-            -> zkUtils.getBrokerPartitions 
-            -> FOR EACH ( broker-topic-partition ) CREATE KafkaInputSplit
-        -> FOR EACH ( KafkaInputSplit ) CREATE MapTask:
-            -> KafkaInputRecordReader( KafkaInputSplit[i] )
-                -> zkUtils.getLastConsumedOffset
-                -> intialize simple kafka consumer
-                -> reset watermark if given as option
-                -> WHILE nextKeyValue()
-                    -> KafkaInputContext.getNext() -> (offset,message):newOffset
-                    -> KafkaInputRecordReader advance currentOffset+=newOffset and numProcessedMessages++
-                    -> HadoopJobMapper(offset,message) -> (date, message)
-                        -> KafkaOutputFormat.RecordWriter.write(date, message)
-                            -> recordWriters[date].write( date,message )
-                                -> LineRecordWriter.write( message ) gz compressed or not
-                -> END WHILE
-                -> close KafkaInputContext
-                -> zkUtils.commitLastConsumedOffset
+It uses hdfs for check-pointing by defauit (a bit more work needs to be done
+to guarantee exactly-once delivery) but offers also a switch to use kafka's
+consumer group mechanism via zookeeper store. Each split is assigned 
+to a task and when that task completes loading all the up-to-date
+messages in the given partition, the output file for the task is 
+ committed using the standard hadoop output committer mechanism.
 
 
-# LAUNCH CONFIGURATIONS
+# Output Partitioning
+
+The output paths are configurable via formatter which uses placeholders
+for topic name `{T}` and partition id `{P}` and the default format is:
+
+    '{T}/{P}'
+    
+This default format basically follows kafka partitioning model which
+translates the output file paths as follows:
+
+    <job-output-directory>/<topic-name>/<partition-id>/<start-offset>
+
+job-output-directory is fixed and start-offset is the name of the file
+marked as offset where the incremental load started. 
+
+Optionally, a TimestampExtractor may be provided by configuration
+which enables time based partitioning format, for example:
+
+    '{T}/d='dddd-MM-yy 
+
+would result in the following file paths:
+
+    <job-output-directory>/<topic-name>/d=<date>/<start-offset>
+    
+From Kafka 0.10 each message has a default timestamp metadata which
+will be available automatically on the 0.10 and higher versions of 
+the hadoop loader.
+
+# Schema-less model
+
+It is schema-less and when used with the built-in MutliOutputFormat it
+simply writes out each message payload byte-by-byte on a new line. This
+way it can be used for simple csv/tsv/json encodings.
+
+Hadoop Loader is capable of transformations within the mapper, be it
+schema-based or purpose-formatted but for these use cases, 
+Kafka Connect is much more suitable framework.
+
+
+# OUT-OF-THE-BOX LAUNCH CONFIGURATIONS
+
+The default program can be packaged with `mvn package` which produces
+a jar that has a limited functionality via command line arguments.
+To see how the job can be configured and extended programatically
+see system tests under src/test.
 
 ## TO RUN FROM AN IDE
     add run configuration arguments: -r [-t <coma_separated_topic_list>] [-z <zookeeper>] [target_hdfs_path]
@@ -55,6 +79,27 @@ which is in turn picked up by Output Format and partitioned on the hdfs-level to
     $ hadoop jar kafka-hadoop-loader.jar [-z <zookeeper>] [-t <topic>] [target_hdfs_path]
 
 
+
+# ANATOMY
+
+    HadoopJob
+        -> KafkaInputFormat
+            -> zkUtils.getBrokerPartitionLeaders
+            -> FOR EACH ( logical partition ) CREATE KafkaInputSplit
+        -> FOR EACH ( KafkaInputSplit ) CREATE MapTask:
+            -> KafkaInputRecordReader( KafkaInputSplit[i] )
+                -> checkpoint manager getLastConsumedOffset
+                -> intialize simple kafka consumer
+                -> reset watermark if given as option
+                -> WHILE nextKeyValue()
+                    -> KafkaInputContext.getNext() -> (offset,message):newOffset
+                    -> KafkaInputRecordReader advance currentOffset+=newOffset and numProcessedMessages++
+                    -> HadoopJobMapper(offset,message) -> (date, message)
+                        -> KafkaOutputFormat.RecordWriter.write(date, message)
+                            -> recordWriters[date].write( date,message )
+                                -> LineRecordWriter.write( message ) gz compressed or not
+                -> close KafkaInputContext
+                -> zkUtils.commitLastConsumedOffset
 
 
 
