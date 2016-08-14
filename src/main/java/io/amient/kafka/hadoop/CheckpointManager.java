@@ -61,7 +61,7 @@ public class CheckpointManager {
             }
             Path pendingCheckpoint = new Path(hdfsCheckpointDir, "_" + topic + "-" + partition);
             if (fs.exists(pendingCheckpoint)) {
-                //TODO locking either crashed job or another instance
+                //FIXME locking either crashed job or another instance
                 fs.delete(pendingCheckpoint, true);
             }
             try (FSDataOutputStream out = fs.create(pendingCheckpoint)) {

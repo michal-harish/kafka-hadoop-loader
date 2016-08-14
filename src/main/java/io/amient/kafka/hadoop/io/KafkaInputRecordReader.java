@@ -172,7 +172,6 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
             }
         }
 
-        // Fill out the record fields using data from the next message.
         if (iterator.hasNext()) {
             MessageAndOffset messageOffset = iterator.next();
 
@@ -181,7 +180,7 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
 
             key = new MsgMetadataWritable(split, messageOffset.offset());
 
-            //TODO handle null message payloads
+            //FIXME handle null message payloads
             value.set(message.payload().array(), message.payload().arrayOffset(), message.payloadSize());
 
             numProcessedMessages++;
@@ -224,7 +223,6 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
         );
 
         if (numProcessedMessages > 0) {
-            //TODO abstract checkpoint manager, either zk or hdfs
             try(KafkaZkUtils zk = new KafkaZkUtils(
                 conf.get(KafkaInputFormat.CONFIG_ZK_CONNECT),
                 conf.getInt(KafkaInputFormat.CONFIG_ZK_SESSION_TIMEOUT_MS, 10000),

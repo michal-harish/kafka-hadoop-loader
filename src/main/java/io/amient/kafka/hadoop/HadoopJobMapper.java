@@ -38,7 +38,8 @@ public class HadoopJobMapper extends Mapper<MsgMetadataWritable, BytesWritable, 
 
     private Serde serde = null;
     private TimestampExtractor extractor;
-    //TODO instead of serde make the OUTVAL generic and configure Deserializer kafkaDeserializer;
+    //FIXME instead of serde make the OUTVAL generic and configure Deserializer kafkaDeserializer;
+    //FIXME it should be possible to use different output format, e.g. ParquetOutputFormat in combination with deser.
 
 
     public interface Serde {

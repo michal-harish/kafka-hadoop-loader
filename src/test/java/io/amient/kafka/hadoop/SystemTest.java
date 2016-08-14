@@ -92,7 +92,7 @@ public class SystemTest {
         zkFactory.startup(zookeeper);
 
         //setup kafka
-        final String kafkaPort = "9092"; //TODO dynamic port allocation
+        final String kafkaPort = "9092"; //FIXME dynamic port allocation, otherwise this may break the build
         kafkaConnect =  "localhost:" + kafkaPort;
         System.out.println("starting local kafka broker...");
         embeddedKafkaPath = new File(dfsBaseDir, "local-kafka-logs");
@@ -216,6 +216,8 @@ public class SystemTest {
         }
 
     }
+
+    //TODO path formatting with json timestamp extraction example
 
 
 }

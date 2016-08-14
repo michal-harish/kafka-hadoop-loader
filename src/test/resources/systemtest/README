@@ -1,0 +1,2 @@
+This directory will be used for testsystem logs and data under target build. To see test
+results look into ./target/test-classes/systemtest/..
