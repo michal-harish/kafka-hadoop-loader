@@ -41,7 +41,7 @@ public class KafkaInputFormat extends InputFormat<MsgMetadataWritable, BytesWrit
      * possible values: `earliest`, `latest` or `watermark`
      */
     static final String CONFIG_KAFKA_AUTOOFFSET_RESET = "kafka.watermark.reset";
-    //TODO instead of the following settings pass anything kafka.consumer.* to the underlying consumer
+    //TODO #12 instead of the following settings pass anything kafka.consumer.* to the underlying consumer
     public static final String CONFIG_KAFKA_MESSAGE_MAX_BYTES = "kafka.fetch.message.max.bytes";
     public static final String CONFIG_KAFKA_SOCKET_TIMEOUT_MS = "kafka.socket.timeout.ms";
     public static final String CONFIG_KAFKA_RECEIVE_BUFFER_BYTES = "kafka.socket.receive.buffer.bytes";

@@ -69,13 +69,13 @@ see system tests under src/test.
 
 ## TO RUN REMOTELY
 
-    $ mvn assembly:single
+    $ mvn package
     $ java -jar kafka-hadoop-loader.jar -r [-t <coma_separated_topic_list>] [-z <zookeeper>] [target_hdfs_path]
     TODO -r check if jar exists otherwise use addJarByClass
 
 
 ## TO RUN AS HADOOP JAR
-    $ mvn assembly:single
+    $ mvn package
     $ hadoop jar kafka-hadoop-loader.jar [-z <zookeeper>] [-t <topic>] [target_hdfs_path]
 
 

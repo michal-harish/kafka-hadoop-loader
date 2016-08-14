@@ -90,7 +90,7 @@ public class SystemTest {
         zkFactory.startup(zookeeper);
 
         //setup kafka
-        final String kafkaPort = "9092"; //FIXME dynamic port allocation, otherwise this may break the build
+        final String kafkaPort = "9092"; // TODO #9 dynamic kafka port allocation
         kafkaConnect = "localhost:" + kafkaPort;
         System.out.println("starting local kafka broker...");
         embeddedKafkaPath = new File(dfsBaseDir, "local-kafka-logs");
@@ -220,6 +220,9 @@ public class SystemTest {
         simpleProducer.send(new KeyedMessage<>("topic02", "2", message1));
         String message6 = "{\"version\":6,\"timestamp\":1402948801425,\"id\": 1}";
         simpleProducer.send(new KeyedMessage<>("topic02", "1", message6));
+        //FIXME invalid messages do not propagate exceptions
+//        String errorMessage = "{\"version\":6,\"timestamp\":1402948801425,\"id";
+//        simpleProducer.send(new KeyedMessage<>("topic02", "9", errorMessage));
 
         //run the job
         Path outDir = new Path(new File(dfsBaseDir, "canUseTimestampInPartitions").toString());

@@ -59,10 +59,6 @@ public class HadoopJob extends Configured implements Tool {
         if (cmd.hasOption("topics")) {
             LOG.info("Using topics: " + cmd.getOptionValue("topics"));
             KafkaInputFormat.configureKafkaTopics(conf, cmd.getOptionValue("topics"));
-        } else if (cmd.hasOption("filter")) {
-            LOG.info("Using topic filter: " + cmd.getOptionValue("filter"));
-            //TODO KafkaInputFormat.configureTopicFilter(conf, cmd.getOptionValue("filter"));
-            throw new NotImplementedException("Topic filter not implemented");
         } else {
             printHelpAndExit(options);
         }
@@ -170,11 +166,6 @@ public class HadoopJob extends Configured implements Tool {
                 .withDescription("Show this help")
                 .create("h"));
 
-        options.addOption(OptionBuilder.withArgName("topic_filter")
-                .withLongOpt("filter")
-                .hasArg()
-                .withDescription("Topic filter")
-                .create("f"));
         return options;
     }
 

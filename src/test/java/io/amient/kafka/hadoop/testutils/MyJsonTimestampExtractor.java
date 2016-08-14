@@ -32,9 +32,13 @@ public class MyJsonTimestampExtractor implements TimestampExtractor {
     @Override
     public long extract(MsgMetadataWritable key, BytesWritable value) throws RuntimeException {
         try {
+            //FIXME exceptions do not get propagated for invalid json
+//            System.err.println(new String(value.getBytes()));
             JsonNode x = jsonMapper.readValue(value.getBytes(), JsonNode.class);
+//            System.err.println(x);
             return x.get("timestamp").getLongValue();
         } catch (Exception e) {
+            e.printStackTrace();
             throw new RuntimeException(e);
         }
     }

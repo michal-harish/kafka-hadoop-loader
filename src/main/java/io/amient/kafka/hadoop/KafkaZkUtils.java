@@ -38,7 +38,7 @@ import java.util.Map;
 
 public class KafkaZkUtils implements Closeable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(KafkaZkUtils.class);
+    private static final Logger log = LoggerFactory.getLogger(KafkaZkUtils.class);
 
     public static final String CONSUMERS_PATH = "/consumers";
     public static final String BROKER_IDS_PATH = "/brokers/ids";
@@ -52,7 +52,7 @@ public class KafkaZkUtils implements Closeable {
     public KafkaZkUtils(String zkConnectString, int sessionTimeout, int connectTimeout) {
         client = new ZkClient(zkConnectString, sessionTimeout, connectTimeout, new StringSerializer());
         jsonMapper = new ObjectMapper(new JsonFactory());
-        LOG.info("Connected zk");
+        log.info("Connected zk");
     }
 
     public String getBrokerName(int brokerId) {
@@ -85,7 +85,7 @@ public class KafkaZkUtils implements Closeable {
         return CONSUMERS_PATH + "/" + group + "/offsets/" + topic + "/" + partition;
     }
 
-    public long getLastConsumedOffset(String group, String topic, int partition) {
+    long getLastConsumedOffset(String group, String topic, int partition) {
         String znode = getOffsetsPath(group, topic, partition);
         String offset = client.readData(znode, true);
         if (offset == null) {
@@ -94,7 +94,7 @@ public class KafkaZkUtils implements Closeable {
         return Long.valueOf(offset);
     }
 
-    public void commitLastConsumedOffset(
+    void commitLastConsumedOffset(
         String group,
         String topic,
         int partition,
@@ -102,18 +102,17 @@ public class KafkaZkUtils implements Closeable {
     ) {
         String path = getOffsetsPath(group, topic, partition);
 
-        LOG.info("OFFSET COMMIT " + path + " = " + offset);
+        log.info("OFFSET COMMIT " + path + " = " + offset);
         if (!client.exists(path)) {
             client.createPersistent(path, true);
         }
-        // TODO use versioned zk.writeData in case antoher hadooop loaer has advanced the offset
+        //TODO use versioned zk.writeData in case antoher instance has advanced the offset
         client.writeData(path, offset);
     }
 
     private List<String> getChildrenParentMayNotExist(String path) {
         try {
-            List<String> children = client.getChildren(path);
-            return children;
+            return client.getChildren(path);
         } catch (ZkNoNodeException e) {
             return new ArrayList<>();
         }
@@ -125,10 +124,7 @@ public class KafkaZkUtils implements Closeable {
         }
     }
 
-    static class StringSerializer implements ZkSerializer {
-
-        public StringSerializer() {
-        }
+    private static class StringSerializer implements ZkSerializer {
 
         public Object deserialize(byte[] data) throws ZkMarshallingError {
             if (data == null)
@@ -142,13 +138,13 @@ public class KafkaZkUtils implements Closeable {
     }
 
 
-    public Map<String, Object> parseJsonAsMap(String data) {
+    private Map<String, Object> parseJsonAsMap(String data) {
         TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
 
         try {
             return jsonMapper.readValue(data, typeRef);
         } catch (IOException e) {
-            return new HashMap<String, Object>();
+            return new HashMap<>();
         }
     }
 }
