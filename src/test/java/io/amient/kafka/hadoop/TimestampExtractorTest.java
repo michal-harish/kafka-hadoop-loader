@@ -3,18 +3,15 @@ package io.amient.kafka.hadoop;
 import io.amient.kafka.hadoop.api.TimestampExtractor;
 import io.amient.kafka.hadoop.io.KafkaInputSplit;
 import io.amient.kafka.hadoop.io.MsgMetadataWritable;
+import io.amient.kafka.hadoop.testutils.MyJsonTimestampExtractor;
+import io.amient.kafka.hadoop.testutils.MyTextTimestampExtractor;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mrunit.mapreduce.MapDriver;
 import org.apache.hadoop.mrunit.types.Pair;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -44,24 +41,6 @@ public class TimestampExtractorTest {
         assertEquals("2016-10-01 12:35:00", extractor.format(metadata.getTimestamp()));
     }
 
-    public static class MyTextTimestampExtractor implements TimestampExtractor {
-        SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
-        @Override
-        public long extract(MsgMetadataWritable key, BytesWritable value) throws RuntimeException {
-            try {
-                String leadString = new String(Arrays.copyOfRange(value.getBytes(), 0, 19));
-                return parser.parse(leadString).getTime();
-            } catch (ParseException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        public String format(long timestamp) {
-            return parser.format(timestamp);
-        }
-    }
-
 
     @Test
     public void testJsonTimeExtractor() throws IOException {
@@ -79,18 +58,5 @@ public class TimestampExtractorTest {
         assertEquals(data, new String(result.get(0).getSecond().copyBytes()));
     }
 
-    public static class MyJsonTimestampExtractor implements TimestampExtractor {
-        ObjectMapper jsonMapper = new ObjectMapper();
 
-        @Override
-        public long extract(MsgMetadataWritable key, BytesWritable value) throws RuntimeException {
-            try {
-                JsonNode x = jsonMapper.readValue(value.getBytes(), JsonNode.class);
-                return x.get("timestamp").getLongValue();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-    }
 }

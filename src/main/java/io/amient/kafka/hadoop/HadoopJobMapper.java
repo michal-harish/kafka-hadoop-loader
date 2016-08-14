@@ -33,23 +33,23 @@ public class HadoopJobMapper extends Mapper<MsgMetadataWritable, BytesWritable, 
 
     static Logger log = LoggerFactory.getLogger(HadoopJobMapper.class);
 
-    private static final String CONFIG_SERDE_CLASS = "mapper.serde.class";
+//    private static final String CONFIG_SERDE_CLASS = "mapper.serde.class";
     private static final String CONFIG_TIMESTAMP_EXTRACTOR_CLASS = "mapper.timestamp.extractor.class";
 
-    private Serde serde = null;
     private TimestampExtractor extractor;
+//    private Serde serde = null;
     //FIXME instead of serde make the OUTVAL generic and configure Deserializer kafkaDeserializer;
     //FIXME it should be possible to use different output format, e.g. ParquetOutputFormat in combination with deser.
 
 
-    public interface Serde {
-        public BytesWritable map(BytesWritable value) throws IOException;
-    }
+//    public interface Serde {
+//        public BytesWritable map(BytesWritable value) throws IOException;
+//    }
 
 
-    public static void configureSerde(Configuration conf, String className) {
-        conf.set(CONFIG_SERDE_CLASS, className);
-    }
+//    public static void configureSerde(Configuration conf, String className) {
+//        conf.set(CONFIG_SERDE_CLASS, className);
+//    }
 
     public static void configureTimestampExtractor(Configuration conf, String className) {
         conf.set(CONFIG_TIMESTAMP_EXTRACTOR_CLASS, className);
@@ -60,13 +60,15 @@ public class HadoopJobMapper extends Mapper<MsgMetadataWritable, BytesWritable, 
     protected void setup(Context context) throws IOException, InterruptedException {
         Configuration conf = context.getConfiguration();
         try {
-            Class<?> serdeClass = conf.getClass(CONFIG_SERDE_CLASS, null);
-            if (serdeClass != null) {
-                serde = serdeClass.asSubclass(Serde.class).newInstance();
-            }
+//            Class<?> serdeClass = conf.getClass(CONFIG_SERDE_CLASS, null);
+//            if (serdeClass != null) {
+//                serde = serdeClass.asSubclass(Serde.class).newInstance();
+//                log.info("Using Serde " + extractor);
+//            }
             Class<?> extractorClass = conf.getClass(CONFIG_TIMESTAMP_EXTRACTOR_CLASS, null);
             if (extractorClass != null) {
                 extractor = extractorClass.asSubclass(TimestampExtractor.class).newInstance();
+                log.info("Using timestamp extractor " + extractor);
             }
 
         } catch (Exception e) {
@@ -81,7 +83,7 @@ public class HadoopJobMapper extends Mapper<MsgMetadataWritable, BytesWritable, 
             if (key != null) {
                 MsgMetadataWritable outputKey = key;
                 if (extractor != null) outputKey = new MsgMetadataWritable(key, extractor.extract(key, value));
-                BytesWritable outputValue = (serde == null) ? value : serde.map(value);
+                BytesWritable outputValue = value; //(serde == null) ? value : serde.map(value);
                 context.write(outputKey, outputValue);
             }
         } catch (InterruptedException e) {

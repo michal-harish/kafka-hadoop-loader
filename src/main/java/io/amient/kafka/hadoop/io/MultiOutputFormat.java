@@ -34,10 +34,13 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.security.TokenCache;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Iterator;
 import java.util.TimeZone;
@@ -45,13 +48,15 @@ import java.util.TreeMap;
 
 public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, BytesWritable> {
 
-    private static final String CONFIG_PARTITION_PATH_FORMAT = "multioutput.path.partition.time.format";
+    final private static Logger log = LoggerFactory.getLogger(MultiOutputFormat.class);
+
+    private static final String CONFIG_PATH_FORMAT = "multioutput.path.format";
 
     /**
      * @param format relative path format, e.g. 'topic={T}/d='yyyy-MM-dd'/h='HH'/{P}'
      */
-    public void configurePartitionPathFormat(Configuration conf, String format) {
-        conf.set(CONFIG_PARTITION_PATH_FORMAT, format);
+    public static void configurePathFormat(Configuration conf, String format) {
+        conf.set(CONFIG_PATH_FORMAT, format);
     }
 
 
@@ -86,27 +91,30 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
         final CompressionCodec codec = gzipCodec;
         final String extension = ext;
 
-        final String pathFormat = conf.get(CONFIG_PARTITION_PATH_FORMAT, "'{T}/{P}'");
+        final String pathFormat = conf.get(CONFIG_PATH_FORMAT, "'{T}/{P}'");
+        log.info("Using path format: " + pathFormat);
         final SimpleDateFormat timeFormat = new SimpleDateFormat(pathFormat);
         timeFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        final DecimalFormat offsetFormat = new DecimalFormat("0000000000000000000");
 
         return new RecordWriter<MsgMetadataWritable, BytesWritable>() {
             TreeMap<String, RecordWriter<Void, BytesWritable>> recordWriters = new TreeMap<>();
 
             Path prefixPath = ((FileOutputCommitter) getOutputCommitter(taskContext)).getWorkPath();
 
-
             public void write(MsgMetadataWritable key, BytesWritable value) throws IOException {
-
-                String suffixPath = timeFormat.format(key.getTimestamp() * 1000)
-                        .replace("{T}", key.getSplit().getTopic())
-                        .replace("{P}", String.valueOf(key.getSplit().getPartition()));
-                suffixPath += "/" + key.getSplit().getStartOffset();
+                String P = String.valueOf(key.getSplit().getPartition());
+                String T = key.getSplit().getTopic();
+                String suffixPath = timeFormat.format(key.getTimestamp());
+                suffixPath = suffixPath.replace("{T}", T);
+                suffixPath = suffixPath.replace("{P}", P);
+                suffixPath += "/" + T + "-"+ P + "-" + offsetFormat.format(key.getSplit().getStartOffset());
+                suffixPath += extension;
 
                 RecordWriter<Void, BytesWritable> rw = this.recordWriters.get(suffixPath);
                 try {
                     if (rw == null) {
-                        Path file = new Path(prefixPath, suffixPath + extension);
+                        Path file = new Path(prefixPath, suffixPath);
                         FileSystem fs = file.getFileSystem(conf);
                         FSDataOutputStream fileOut = fs.create(file, false);
                         if (isCompressed) {
@@ -118,11 +126,9 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
                     }
                     rw.write(null, value);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    Thread.currentThread().interrupt();
                 }
             }
-
-            ;
 
             @Override
             public void close(TaskAttemptContext context) throws IOException, InterruptedException {
@@ -134,7 +140,6 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
                 this.recordWriters.clear();
             }
 
-            ;
         };
     }
 
@@ -163,7 +168,7 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
             if (nullValue) {
                 return;
             }
-            out.write(value.getBytes(),  0, value.getLength());
+            out.write(value.getBytes(), 0, value.getLength());
             out.write(newline);
         }
 

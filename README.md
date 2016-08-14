@@ -27,10 +27,10 @@ for topic name `{T}` and partition id `{P}` and the default format is:
 This default format basically follows kafka partitioning model which
 translates the output file paths as follows:
 
-    <job-output-directory>/<topic-name>/<partition-id>/<start-offset>
+    <job-output-directory>/<topic-name>/<partition-id>/<unique-filename>
 
-job-output-directory is fixed and start-offset is the name of the file
-marked as offset where the incremental load started. 
+job-output-directory is fixed and unique-filename is a combination of
+topic partition and start offset where the incremental load started. 
 
 Optionally, a TimestampExtractor may be provided by configuration
 which enables time based partitioning format, for example:
@@ -39,7 +39,7 @@ which enables time based partitioning format, for example:
 
 would result in the following file paths:
 
-    <job-output-directory>/<topic-name>/d=<date>/<start-offset>
+    <job-output-directory>/<topic-name>/d=<date>/<unique-filename>
     
 From Kafka 0.10 each message has a default timestamp metadata which
 will be available automatically on the 0.10 and higher versions of 

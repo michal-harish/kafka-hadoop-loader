@@ -7,7 +7,7 @@
         </layout>
     </appender>
 
-    <logger name="io.amient.kafka.hadoop.HadoopJobMapper" additivity="false">
+    <logger name="io.amient.kafka.hadoop" additivity="false">
         <level value="INFO" />
         <appender-ref ref="consoleAppender"/>
     </logger>
