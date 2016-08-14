@@ -54,7 +54,7 @@ public class TimestampExtractorTest {
         HadoopJobMapper.configureTimestampExtractor(mapDriver.getConfiguration(), extractor.getClass().getName());
 
         final List<Pair<MsgMetadataWritable, BytesWritable>> result = mapDriver.run();
-        assertEquals(1402944501425L, result.get(0).getFirst().getTimestamp());
+        assertEquals(new Long(1402944501425L), result.get(0).getFirst().getTimestamp());
         assertEquals(data, new String(result.get(0).getSecond().copyBytes()));
     }
 

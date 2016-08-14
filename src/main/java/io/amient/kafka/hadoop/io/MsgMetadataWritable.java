@@ -28,7 +28,7 @@ import java.io.IOException;
 
 public class MsgMetadataWritable implements Writable {
 
-    private long timestamp;
+    private Long timestamp;
     private KafkaInputSplit split;
     private long offset;
 
@@ -44,7 +44,7 @@ public class MsgMetadataWritable implements Writable {
         this.timestamp = 0L;
     }
 
-    public MsgMetadataWritable(MsgMetadataWritable copyOf, long timestamp) {
+    public MsgMetadataWritable(MsgMetadataWritable copyOf, Long timestamp) {
         this.split = copyOf.getSplit();
         this.offset = copyOf.getOffset();
         this.timestamp = timestamp;
@@ -112,7 +112,11 @@ public class MsgMetadataWritable implements Writable {
         return result;
     }
 
-    public long getTimestamp() {
+    /**
+     * @return Long value in millisecons UTC or null if no timestamp is
+     *          associated with the message metadata
+     */
+    public Long getTimestamp() {
         return timestamp;
     }
 }

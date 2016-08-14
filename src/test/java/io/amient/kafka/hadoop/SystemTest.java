@@ -110,7 +110,6 @@ public class SystemTest {
         simpleProducer = new Producer<>(new ProducerConfig(new Properties() {{
             put("metadata.broker.list", kafkaConnect);
             put("serializer.class", "kafka.serializer.StringEncoder");
-            //put("partitioner.class", "example.simpleProducer.SimplePartitioner");
             put("request.required.acks", "1");
         }}));
 
@@ -220,9 +219,8 @@ public class SystemTest {
         simpleProducer.send(new KeyedMessage<>("topic02", "2", message1));
         String message6 = "{\"version\":6,\"timestamp\":1402948801425,\"id\": 1}";
         simpleProducer.send(new KeyedMessage<>("topic02", "1", message6));
-        //FIXME invalid messages do not propagate exceptions
-//        String errorMessage = "{\"version\":6,\"timestamp\":1402948801425,\"id";
-//        simpleProducer.send(new KeyedMessage<>("topic02", "9", errorMessage));
+        //testing a null message - with timestamp extractor this means skip message
+        simpleProducer.send(new KeyedMessage<>("topic02", "1", (String)null));
 
         //run the job
         Path outDir = new Path(new File(dfsBaseDir, "canUseTimestampInPartitions").toString());

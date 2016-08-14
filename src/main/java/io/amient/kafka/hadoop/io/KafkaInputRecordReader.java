@@ -180,8 +180,11 @@ public class KafkaInputRecordReader extends RecordReader<MsgMetadataWritable, By
 
             key = new MsgMetadataWritable(split, messageOffset.offset());
 
-            //TODO #10 handle null messagepayloads
-            value.set(message.payload().array(), message.payload().arrayOffset(), message.payloadSize());
+            if (message.isNull()) {
+                value.setSize(0);
+            } else {
+                value.set(message.payload().array(), message.payload().arrayOffset(), message.payloadSize());
+            }
 
             numProcessedMessages++;
             if (!iterator.hasNext()) {

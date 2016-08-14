@@ -23,6 +23,7 @@ import io.amient.kafka.hadoop.api.TimestampExtractor;
 import io.amient.kafka.hadoop.io.MsgMetadataWritable;
 import org.apache.hadoop.io.BytesWritable;
 
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -31,12 +32,12 @@ public class MyTextTimestampExtractor implements TimestampExtractor {
     SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     @Override
-    public long extract(MsgMetadataWritable key, BytesWritable value) throws RuntimeException {
+    public Long extract(MsgMetadataWritable key, BytesWritable value) throws IOException {
         try {
             String leadString = new String(Arrays.copyOfRange(value.getBytes(), 0, 19));
             return parser.parse(leadString).getTime();
         } catch (ParseException e) {
-            throw new RuntimeException(e);
+            return null;
         }
     }
 

@@ -55,6 +55,10 @@ public class HadoopJobMapper extends Mapper<MsgMetadataWritable, BytesWritable, 
         conf.set(CONFIG_TIMESTAMP_EXTRACTOR_CLASS, className);
     }
 
+    public static boolean isTimestampExtractorConfigured(Configuration conf) {
+        return !conf.get(CONFIG_TIMESTAMP_EXTRACTOR_CLASS, "").equals("");
+    }
+
 
     @Override
     protected void setup(Context context) throws IOException, InterruptedException {
@@ -82,12 +86,17 @@ public class HadoopJobMapper extends Mapper<MsgMetadataWritable, BytesWritable, 
         try {
             if (key != null) {
                 MsgMetadataWritable outputKey = key;
-                if (extractor != null) outputKey = new MsgMetadataWritable(key, extractor.extract(key, value));
+                if (extractor != null) {
+                    Long timestamp = extractor.extract(key, value);
+                    outputKey = new MsgMetadataWritable(key, timestamp);
+                }
                 BytesWritable outputValue = value; //(serde == null) ? value : serde.map(value);
                 context.write(outputKey, outputValue);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } catch (IOException e) {
+            throw e;
         }
     }
 

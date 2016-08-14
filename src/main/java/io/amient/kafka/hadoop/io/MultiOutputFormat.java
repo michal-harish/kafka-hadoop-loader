@@ -19,6 +19,7 @@
 
 package io.amient.kafka.hadoop.io;
 
+import io.amient.kafka.hadoop.HadoopJobMapper;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -96,6 +97,7 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
         final SimpleDateFormat timeFormat = new SimpleDateFormat(pathFormat);
         timeFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         final DecimalFormat offsetFormat = new DecimalFormat("0000000000000000000");
+        final boolean hasTimeExtractor = HadoopJobMapper.isTimestampExtractorConfigured(conf);
 
         return new RecordWriter<MsgMetadataWritable, BytesWritable>() {
             TreeMap<String, RecordWriter<Void, BytesWritable>> recordWriters = new TreeMap<>();
@@ -103,14 +105,17 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
             Path prefixPath = ((FileOutputCommitter) getOutputCommitter(taskContext)).getWorkPath();
 
             public void write(MsgMetadataWritable key, BytesWritable value) throws IOException {
+                if (hasTimeExtractor && key.getTimestamp() == null) {
+                    //extractor didn't wish to throw exception so skipping this record
+                    return;
+                }
                 String P = String.valueOf(key.getSplit().getPartition());
                 String T = key.getSplit().getTopic();
-                String suffixPath = timeFormat.format(key.getTimestamp());
+                String suffixPath = hasTimeExtractor ? timeFormat.format(key.getTimestamp()) : pathFormat;
                 suffixPath = suffixPath.replace("{T}", T);
                 suffixPath = suffixPath.replace("{P}", P);
                 suffixPath += "/" + T + "-"+ P + "-" + offsetFormat.format(key.getSplit().getStartOffset());
                 suffixPath += extension;
-
                 RecordWriter<Void, BytesWritable> rw = this.recordWriters.get(suffixPath);
                 try {
                     if (rw == null) {
@@ -144,16 +149,8 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
     }
 
     protected static class LineRecordWriter extends RecordWriter<Void, BytesWritable> {
-        private static final String utf8 = "UTF-8";
-        private static final byte[] newline;
 
-        static {
-            try {
-                newline = String.format("%n").getBytes(utf8);
-            } catch (UnsupportedEncodingException uee) {
-                throw new IllegalArgumentException("can't find " + utf8 + " encoding");
-            }
-        }
+        private static final byte[] newline = String.format("%n").getBytes();
 
         protected DataOutputStream out;
 
@@ -163,11 +160,6 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
 
         public synchronized void write(Void key, BytesWritable value)
                 throws IOException {
-
-            boolean nullValue = value == null; //|| value instanceof NullWritable;
-            if (nullValue) {
-                return;
-            }
             out.write(value.getBytes(), 0, value.getLength());
             out.write(newline);
         }

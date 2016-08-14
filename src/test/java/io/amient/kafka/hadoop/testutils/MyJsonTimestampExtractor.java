@@ -25,22 +25,21 @@ import org.apache.hadoop.io.BytesWritable;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
 
+import java.io.IOException;
+
 public class MyJsonTimestampExtractor implements TimestampExtractor {
 
     ObjectMapper jsonMapper = new ObjectMapper();
 
     @Override
-    public long extract(MsgMetadataWritable key, BytesWritable value) throws RuntimeException {
-        try {
-            //FIXME exceptions do not get propagated for invalid json
-//            System.err.println(new String(value.getBytes()));
-            JsonNode x = jsonMapper.readValue(value.getBytes(), JsonNode.class);
-//            System.err.println(x);
-            return x.get("timestamp").getLongValue();
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
+    public Long extract(MsgMetadataWritable key, BytesWritable value) throws IOException {
+        if (value.getLength() > 0) {
+            JsonNode json = jsonMapper.readValue(value.getBytes(), 0, value.getLength(), JsonNode.class);
+            if (json.has("timestamp")) {
+                return json.get("timestamp").getLongValue();
+            }
         }
+        return null;
     }
 
 }
