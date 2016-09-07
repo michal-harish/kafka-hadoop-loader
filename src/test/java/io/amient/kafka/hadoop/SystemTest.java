@@ -40,6 +40,8 @@ import org.apache.zookeeper.server.ZooKeeperServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.runner.notification.Failure;
 
 import java.io.File;
 import java.io.IOException;
@@ -144,7 +146,8 @@ public class SystemTest {
     }
 
 
-    private Path runSimpleJob(String topic, String testOutputDir) throws InterruptedException, IOException, ClassNotFoundException {
+    private Path runSimpleJob(String topic, String testOutputDir)
+            throws InterruptedException, IOException, ClassNotFoundException {
 
         //run hadoop loader job
         Path outDir = new Path(new File(dfsBaseDir, testOutputDir).toString());
@@ -165,7 +168,7 @@ public class SystemTest {
         MultiOutputFormat.setCompressOutput(job, false);
 
         job.waitForCompletion(true);
-        assertTrue(job.isSuccessful());
+        if (!job.isSuccessful()) throw new Error("job failed - see logs for details");
 
         fs.copyToLocalFile(outDir, outDir);
         return outDir;
@@ -222,32 +225,13 @@ public class SystemTest {
         //testing a null message - with timestamp extractor this means skip message
         simpleProducer.send(new KeyedMessage<>("topic02", "1", (String)null));
 
-        //run the job
-        Path outDir = new Path(new File(dfsBaseDir, "canUseTimestampInPartitions").toString());
-        localFileSystem.delete(outDir, true);
-
         //configure inputs, timestamp extractor and the output path format
         KafkaInputFormat.configureKafkaTopics(conf, "topic02");
         KafkaInputFormat.configureZkConnection(conf, zkConnect);
         HadoopJobMapper.configureTimestampExtractor(conf, MyJsonTimestampExtractor.class.getName());
         MultiOutputFormat.configurePathFormat(conf, "'t={T}/d='yyyy-MM-dd'/h='HH");
 
-        Job job = Job.getInstance(conf, "kafka.hadoop.loader");
-        job.setNumReduceTasks(0);
-
-        job.setInputFormatClass(KafkaInputFormat.class);
-        job.setMapperClass(HadoopJobMapper.class);
-        job.setOutputValueClass(Text.class);
-        job.setOutputFormatClass(MultiOutputFormat.class);
-
-        MultiOutputFormat.setOutputPath(job, outDir);
-        MultiOutputFormat.setCompressOutput(job, false);
-
-        job.waitForCompletion(true);
-
-        assertTrue(job.isSuccessful());
-
-        fs.copyToLocalFile(outDir, outDir);
+        Path outDir = runSimpleJob("topic02", "canUseTimestampInPartitions");
 
         Path h18 = new Path(outDir, "t=topic02/d=2014-06-16/h=18/topic02-1-0000000000000000000");
         assertTrue(localFileSystem.exists(h18));
@@ -260,7 +244,19 @@ public class SystemTest {
         Path h20 = new Path(outDir, "t=topic02/d=2014-06-16/h=20/topic02-1-0000000000000000000");
         assertTrue(localFileSystem.exists(h20));
         assertEquals(String.format("%s%n", message6), readFullyAsString(h20, 100));
+    }
 
+    @Test(expected=java.lang.Error.class)
+    public void failsNormallyWithInvalidInput() throws IOException, ClassNotFoundException, InterruptedException {
+        //configure inputs, timestamp extractor and the output path format
+        KafkaInputFormat.configureKafkaTopics(conf, "topic02");
+        KafkaInputFormat.configureZkConnection(conf, zkConnect);
+        HadoopJobMapper.configureTimestampExtractor(conf, MyJsonTimestampExtractor.class.getName());
+        MultiOutputFormat.configurePathFormat(conf, "'t={T}/d='yyyy-MM-dd'/h='HH");
+
+        //produce and run
+        simpleProducer.send(new KeyedMessage<>("topic02", "1", "{invalid-json-should-fail-in-extractor"));
+        runSimpleJob("topic02", "failsNormallyWithInvalidInput");
     }
 
     private String readFullyAsString(Path file, int maxSize) throws IOException {

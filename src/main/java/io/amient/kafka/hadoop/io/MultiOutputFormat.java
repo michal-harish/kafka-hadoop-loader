@@ -97,7 +97,7 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
         final SimpleDateFormat timeFormat = new SimpleDateFormat(pathFormat);
         timeFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         final DecimalFormat offsetFormat = new DecimalFormat("0000000000000000000");
-        final boolean hasTimeExtractor = HadoopJobMapper.isTimestampExtractorConfigured(conf);
+        final boolean hasTS = HadoopJobMapper.isTimestampExtractorConfigured(conf);
 
         return new RecordWriter<MsgMetadataWritable, BytesWritable>() {
             TreeMap<String, RecordWriter<Void, BytesWritable>> recordWriters = new TreeMap<>();
@@ -105,13 +105,13 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
             Path prefixPath = ((FileOutputCommitter) getOutputCommitter(taskContext)).getWorkPath();
 
             public void write(MsgMetadataWritable key, BytesWritable value) throws IOException {
-                if (hasTimeExtractor && key.getTimestamp() == null) {
+                if (hasTS && key.getTimestamp() == null) {
                     //extractor didn't wish to throw exception so skipping this record
                     return;
                 }
                 String P = String.valueOf(key.getSplit().getPartition());
                 String T = key.getSplit().getTopic();
-                String suffixPath = hasTimeExtractor ? timeFormat.format(key.getTimestamp()) : pathFormat;
+                String suffixPath = hasTS ? timeFormat.format(key.getTimestamp()) : pathFormat.replaceAll("'", "");
                 suffixPath = suffixPath.replace("{T}", T);
                 suffixPath = suffixPath.replace("{P}", P);
                 suffixPath += "/" + T + "-"+ P + "-" + offsetFormat.format(key.getSplit().getStartOffset());
