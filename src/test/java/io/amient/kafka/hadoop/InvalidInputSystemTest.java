@@ -35,7 +35,7 @@ public class InvalidInputSystemTest extends SystemTestBase {
         //configure inputs, timestamp extractor and the output path format
         KafkaInputFormat.configureKafkaTopics(conf, "topic02");
         KafkaInputFormat.configureZkConnection(conf, zkConnect);
-        HadoopJobMapper.configureTimestampExtractor(conf, MyJsonTimestampExtractor.class.getName());
+        HadoopJobMapper.configureExtractor(conf, MyJsonTimestampExtractor.class);
         MultiOutputFormat.configurePathFormat(conf, "'t={T}/d='yyyy-MM-dd'/h='HH");
 
         //produce and run

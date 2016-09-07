@@ -19,12 +19,9 @@
 
 package io.amient.kafka.hadoop.api;
 
-import io.amient.kafka.hadoop.io.MsgMetadataWritable;
-import org.apache.hadoop.io.BytesWritable;
-
 import java.io.IOException;
 
-public interface TimestampExtractor {
+public interface TimestampExtractor extends Extractor {
 
     /**
      *
@@ -32,12 +29,11 @@ public interface TimestampExtractor {
      * code and its length may be bigger than the current value so getLength()
      * has to be used as the limit.
      *
-     * @param key metadata associated with the message
-     * @param value message payload byte buffer
+     * @param any deserialized object which contains the timestamp
      * @return timestamp utc in millisecond or null if no value could be extracted
      *          without exception.
      * @throws IOException
      */
-    Long extract(MsgMetadataWritable key, BytesWritable value) throws IOException;
+    Long extractTimestamp(Object any) throws IOException;
 }
 

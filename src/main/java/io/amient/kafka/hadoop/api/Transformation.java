@@ -17,34 +17,15 @@
  * limitations under the License.
  */
 
-package io.amient.kafka.hadoop.testutils;
+package io.amient.kafka.hadoop.api;
 
-import io.amient.kafka.hadoop.api.TimestampExtractor;
-import io.amient.kafka.hadoop.io.MsgMetadataWritable;
 import org.apache.hadoop.io.BytesWritable;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.map.ObjectMapper;
 
 import java.io.IOException;
 
-public class MyJsonTimestampExtractor implements TimestampExtractor {
+public interface Transformation {
 
-    ObjectMapper jsonMapper = new ObjectMapper();
+    //TODO #8 besides transformation make also the OUTVAL generic
+    BytesWritable transform(Object any) throws IOException;
 
-    @Override
-    public Object deserialize(MsgMetadataWritable key, BytesWritable value) throws IOException {
-        if (value.getLength() > 0) {
-            return jsonMapper.readValue(value.getBytes(), 0, value.getLength(), JsonNode.class);
-        }
-        return null;
-    }
-
-    @Override
-    public Long extractTimestamp(Object any) throws IOException {
-        JsonNode json = (JsonNode) any;
-        if (json != null && json.has("timestamp")) {
-            return json.get("timestamp").getLongValue();
-        }
-        return null;
-    }
 }

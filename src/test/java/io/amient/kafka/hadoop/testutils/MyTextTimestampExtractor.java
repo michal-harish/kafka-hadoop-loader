@@ -27,21 +27,27 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 
 public class MyTextTimestampExtractor implements TimestampExtractor {
     SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
+    public String format(long timestamp) {
+        return parser.format(timestamp);
+    }
+
     @Override
-    public Long extract(MsgMetadataWritable key, BytesWritable value) throws IOException {
+    public Object deserialize(MsgMetadataWritable key, BytesWritable value) throws IOException {
+        return new String(Arrays.copyOfRange(value.getBytes(), 0, 19));
+    }
+
+    @Override
+    public Long extractTimestamp(Object any) throws IOException {
         try {
-            String leadString = new String(Arrays.copyOfRange(value.getBytes(), 0, 19));
-            return parser.parse(leadString).getTime();
+            Date date = parser.parse((String)any);
+            return date.getTime();
         } catch (ParseException e) {
             return null;
         }
-    }
-
-    public String format(long timestamp) {
-        return parser.format(timestamp);
     }
 }

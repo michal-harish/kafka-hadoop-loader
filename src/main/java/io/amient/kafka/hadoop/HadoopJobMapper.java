@@ -19,7 +19,9 @@
 
 package io.amient.kafka.hadoop;
 
+import io.amient.kafka.hadoop.api.Extractor;
 import io.amient.kafka.hadoop.api.TimestampExtractor;
+import io.amient.kafka.hadoop.api.Transformation;
 import io.amient.kafka.hadoop.io.MsgMetadataWritable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.BytesWritable;
@@ -33,30 +35,28 @@ public class HadoopJobMapper extends Mapper<MsgMetadataWritable, BytesWritable, 
 
     static Logger log = LoggerFactory.getLogger(HadoopJobMapper.class);
 
-//    private static final String CONFIG_SERDE_CLASS = "mapper.serde.class";
-    private static final String CONFIG_TIMESTAMP_EXTRACTOR_CLASS = "mapper.timestamp.extractor.class";
+    private static final String CONFIG_EXTRACTOR_CLASS = "mapper.timestamp.extractor.class";
 
-    private TimestampExtractor extractor;
-//    private Serde serde = null;
-    //TODO #8 instead of serde make the OUTVAL generic and configure Deserializer kafkaDeserializer;
-    //TODO #8 it should be possible to use different output format, e.g. ParquetOutputFormat in combination with deser.
+    private Extractor extractor;
 
-
-//    public interface Serde {
-//        public BytesWritable map(BytesWritable value) throws IOException;
-//    }
-
-
-//    public static void configureSerde(Configuration conf, String className) {
-//        conf.set(CONFIG_SERDE_CLASS, className);
-//    }
-
-    public static void configureTimestampExtractor(Configuration conf, String className) {
-        conf.set(CONFIG_TIMESTAMP_EXTRACTOR_CLASS, className);
+    /**
+     * Provide a timestamp extractor
+     * @param conf
+     * @param cls class implementing the TimestampExtractor interface
+     */
+    public static void configureExtractor(Configuration conf, Class<? extends Extractor> cls) {
+        conf.set(CONFIG_EXTRACTOR_CLASS, cls.getName());
     }
 
-    public static boolean isTimestampExtractorConfigured(Configuration conf) {
-        return !conf.get(CONFIG_TIMESTAMP_EXTRACTOR_CLASS, "").equals("");
+    public static boolean isTimestampExtractorConfigured(Configuration conf) throws IOException {
+        String extractorClassName = conf.get(CONFIG_EXTRACTOR_CLASS, null);
+        if (extractorClassName == null) return false; else {
+            try {
+                return TimestampExtractor.class.isAssignableFrom(Class.forName(extractorClassName));
+            } catch (ClassNotFoundException e) {
+                throw new IOException(e);
+            }
+        }
     }
 
 
@@ -64,15 +64,10 @@ public class HadoopJobMapper extends Mapper<MsgMetadataWritable, BytesWritable, 
     protected void setup(Context context) throws IOException, InterruptedException {
         Configuration conf = context.getConfiguration();
         try {
-//            Class<?> serdeClass = conf.getClass(CONFIG_SERDE_CLASS, null);
-//            if (serdeClass != null) {
-//                serde = serdeClass.asSubclass(Serde.class).newInstance();
-//                log.info("Using Serde " + extractor);
-//            }
-            Class<?> extractorClass = conf.getClass(CONFIG_TIMESTAMP_EXTRACTOR_CLASS, null);
+            Class<?> extractorClass = conf.getClass(CONFIG_EXTRACTOR_CLASS, null);
             if (extractorClass != null) {
-                extractor = extractorClass.asSubclass(TimestampExtractor.class).newInstance();
-                log.info("Using timestamp extractor " + extractor);
+                extractor = extractorClass.asSubclass(Extractor.class).newInstance();
+                log.info("Using extractor " + extractor);
             }
 
         } catch (Exception e) {
@@ -86,11 +81,17 @@ public class HadoopJobMapper extends Mapper<MsgMetadataWritable, BytesWritable, 
         try {
             if (key != null) {
                 MsgMetadataWritable outputKey = key;
+                BytesWritable outputValue = value;
                 if (extractor != null) {
-                    Long timestamp = extractor.extract(key, value);
-                    outputKey = new MsgMetadataWritable(key, timestamp);
+                    Object any = extractor.deserialize(key, value);
+                    if (extractor instanceof TimestampExtractor) {
+                        Long timestamp = ((TimestampExtractor)extractor).extractTimestamp(any);
+                        outputKey = new MsgMetadataWritable(key, timestamp);
+                    }
+                    if (extractor instanceof Transformation) {
+                        outputValue = ((Transformation)extractor).transform(any);
+                    }
                 }
-                BytesWritable outputValue = value; //(serde == null) ? value : serde.map(value);
                 context.write(outputKey, outputValue);
             }
         } catch (InterruptedException e) {

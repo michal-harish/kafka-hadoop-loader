@@ -34,7 +34,7 @@ public class TimestampExtractorUnitTest {
         mapDriver.withInput(inputKey, new BytesWritable(data.getBytes()));
 
         MyTextTimestampExtractor extractor = new MyTextTimestampExtractor();
-        HadoopJobMapper.configureTimestampExtractor(mapDriver.getConfiguration(), extractor.getClass().getName());
+        HadoopJobMapper.configureExtractor(mapDriver.getConfiguration(), extractor.getClass());
 
         final List<Pair<MsgMetadataWritable, BytesWritable>> result = mapDriver.run();
         MsgMetadataWritable metadata = result.get(0).getFirst();
@@ -51,7 +51,7 @@ public class TimestampExtractorUnitTest {
         mapDriver.withInput(inputKey, new BytesWritable(data.getBytes()));
 
         TimestampExtractor extractor = new MyJsonTimestampExtractor();
-        HadoopJobMapper.configureTimestampExtractor(mapDriver.getConfiguration(), extractor.getClass().getName());
+        HadoopJobMapper.configureExtractor(mapDriver.getConfiguration(), extractor.getClass());
 
         final List<Pair<MsgMetadataWritable, BytesWritable>> result = mapDriver.run();
         assertEquals(new Long(1402944501425L), result.get(0).getFirst().getTimestamp());

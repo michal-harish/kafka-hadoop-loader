@@ -40,7 +40,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Iterator;
@@ -59,7 +58,6 @@ public class MultiOutputFormat extends FileOutputFormat<MsgMetadataWritable, Byt
     public static void configurePathFormat(Configuration conf, String format) {
         conf.set(CONFIG_PATH_FORMAT, format);
     }
-
 
     public void checkOutputSpecs(JobContext job) throws IOException {
         // Ensure that the output directory is set and not already there
