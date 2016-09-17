@@ -20,9 +20,11 @@
 package io.amient.kafka.hadoop.testutils;
 
 import io.amient.kafka.hadoop.HadoopJobMapper;
+import io.amient.kafka.hadoop.KafkaZkUtils;
 import io.amient.kafka.hadoop.TimestampExtractorSystemTest;
 import io.amient.kafka.hadoop.io.KafkaInputFormat;
 import io.amient.kafka.hadoop.io.MultiOutputFormat;
+import kafka.cluster.Broker;
 import kafka.javaapi.producer.Producer;
 import kafka.producer.ProducerConfig;
 import kafka.server.KafkaConfig;
@@ -86,14 +88,13 @@ public class SystemTestBase {
         zkFactory.startup(zookeeper);
 
         //setup kafka
-        final String kafkaPort = "9092"; // TODO #9 dynamic kafka port allocation
-        kafkaBootstrap = "localhost:" + kafkaPort;
         System.out.println("starting local kafka broker...");
+
         embeddedKafkaPath = new File(dfsBaseDir, "local-kafka-logs");
         KafkaConfig kafkaConfig = new KafkaConfig(new Properties() {{
             put("broker.id", "1");
             put("host.name", "localhost");
-            put("port", kafkaPort);
+            put("port", "49092");
             put("log.dir", embeddedKafkaPath.toString());
             put("num.partitions", "2");
             put("auto.create.topics.enable", "true");
@@ -101,6 +102,13 @@ public class SystemTestBase {
         }});
         kafka = new KafkaServerStartable(kafkaConfig);
         kafka.startup();
+        //#9 dynamic kafka port allocation works only from 0.9+
+//        try(KafkaZkUtils tmpZkClient = new KafkaZkUtils(zkConnect, 30000, 6000)) {
+//            Broker broker = Broker.createBroker(1, tmpZkClient.getBrokerInfo(1));
+//            kafkaBootstrap = broker.connectionString();
+//        }
+        kafkaBootstrap = "localhost:49092";
+
 
         System.out.println("preparing simpleProducer..");
         simpleProducer = new Producer<>(new ProducerConfig(new Properties() {{

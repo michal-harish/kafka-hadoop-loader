@@ -56,9 +56,12 @@ public class KafkaZkUtils implements Closeable {
     }
 
     public String getBrokerName(int brokerId) {
-        String data = client.readData(BROKER_IDS_PATH + "/" + brokerId);
-        Map<String, Object> map = parseJsonAsMap(data);
+        Map<String, Object> map = parseJsonAsMap(getBrokerInfo(brokerId));
         return map.get("host") + ":" + map.get("port");
+    }
+
+    public String getBrokerInfo(int brokerId) {
+        return client.readData(BROKER_IDS_PATH + "/" + brokerId);
     }
 
     /**
