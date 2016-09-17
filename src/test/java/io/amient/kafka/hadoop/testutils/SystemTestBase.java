@@ -37,6 +37,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.kafka.common.protocol.SecurityProtocol;
 import org.apache.zookeeper.server.NIOServerCnxnFactory;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.junit.After;
@@ -94,7 +95,7 @@ public class SystemTestBase {
         KafkaConfig kafkaConfig = new KafkaConfig(new Properties() {{
             put("broker.id", "1");
             put("host.name", "localhost");
-            put("port", "49092");
+            put("port", "0");
             put("log.dir", embeddedKafkaPath.toString());
             put("num.partitions", "2");
             put("auto.create.topics.enable", "true");
@@ -102,13 +103,12 @@ public class SystemTestBase {
         }});
         kafka = new KafkaServerStartable(kafkaConfig);
         kafka.startup();
-        //#9 dynamic kafka port allocation works only from 0.9+
-//        try(KafkaZkUtils tmpZkClient = new KafkaZkUtils(zkConnect, 30000, 6000)) {
-//            Broker broker = Broker.createBroker(1, tmpZkClient.getBrokerInfo(1));
-//            kafkaBootstrap = broker.connectionString();
-//        }
-        kafkaBootstrap = "localhost:49092";
 
+        //dynamic kafka port allocation
+        try(KafkaZkUtils tmpZkClient = new KafkaZkUtils(zkConnect, 30000, 6000)) {
+            Broker broker = Broker.createBroker(1, tmpZkClient.getBrokerInfo(1));
+            kafkaBootstrap = broker.getBrokerEndPoint(SecurityProtocol.PLAINTEXT).connectionString();
+        }
 
         System.out.println("preparing simpleProducer..");
         simpleProducer = new Producer<>(new ProducerConfig(new Properties() {{
