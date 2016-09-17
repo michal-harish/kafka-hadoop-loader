@@ -12,6 +12,7 @@
         <scala.version>2.10</scala.version>
         <hadoop.version>2.2.0</hadoop.version>
         <kafka.version>0.8.2.1</kafka.version>
+        <parquet.version>1.7.0</parquet.version>
         <jackson.version>1.8.3</jackson.version>
     </properties>
 
@@ -32,6 +33,11 @@
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
             <version>${hadoop.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-column</artifactId>
+            <version>${parquet.version}</version>
         </dependency>
         <dependency>
             <groupId>org.codehaus.jackson</groupId>
