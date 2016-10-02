@@ -81,6 +81,8 @@ public class SystemTestBase {
 
         //setup zookeeper
         embeddedZkPath = new File(dfsBaseDir, "local-zookeeper");
+        // smaller testDir footprint, default zookeeper file blocks are 65535Kb
+        System.getProperties().setProperty("zookeeper.preAllocSize", "64");
         zookeeper = new ZooKeeperServer(new File(embeddedZkPath, "snapshots"), new File(embeddedZkPath, "logs"), 3000);
         zkFactory = new NIOServerCnxnFactory();
         zkFactory.configure(new InetSocketAddress(0), 10);
